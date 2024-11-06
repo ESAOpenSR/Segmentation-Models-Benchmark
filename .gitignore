@@ -1,0 +1,62 @@
+config_3band.yaml
+*.geojson
+*.json
+old_code/
+wandb
+wandb/*
+wandb/
+ckpts/
+*.ckpt
+*.pt
+*.pth
+__pycache__/
+logs/
+*.swp
+wandb/
+images/
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# PyTorch Lightning logs and checkpoints
+lightning_logs/
+*.ckpt
+*.pth
+
+# Weights & Biases (wandb)
+wandb/
+wandb/latest-run/
+wandb/run-*   # Individual run directories
+
+# PyTorch Lightning temp files
+*.tmp
+*.temp
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VS Code settings (optional)
+.vscode/
+
+# Virtual environment
+venv/
+.env/
+*.env
+
+# Python egg files
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Packaging files
+*.wheel
+*.manifest
+*.spec
+dist/
+build/
