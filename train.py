@@ -14,7 +14,7 @@ import os,sys
 
 # Load the model --------------------------------------------------------------
 from model_files import model_pl
-config = OmegaConf.load("configs/config_hr.yaml")
+config = OmegaConf.load("configs/config_lr.yaml")
 model = model_pl(config) # model selection is handled by the model_pl function
 
 
@@ -65,6 +65,12 @@ wandb_logger = WandbLogger(project=project_name)# ,mode="disabled")
 from pytorch_lightning.callbacks import ModelCheckpoint
 dir_save_checkpoints = os.path.join(tb_logger.save_dir,project_name,datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 print("Experiment Path:",dir_save_checkpoints)
+
+# save config file to dict
+config_dict = OmegaConf.to_container(config)
+with open(os.path.join(dir_save_checkpoints,"train_config.yaml"),'w') as f:
+    f.write(str(config_dict))
+    
 checkpoint_callback = ModelCheckpoint(dirpath=dir_save_checkpoints,
                                         monitor=config.training.pl_settings.checkpoint_saving_metric,
                                         mode='min',

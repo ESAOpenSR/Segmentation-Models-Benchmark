@@ -13,8 +13,8 @@ training:
   momentum: 0.999               # Momentum for optimizer (e.g., RMSprop or SGD)
   amp: false                    # Automatic Mixed Precision (True/False)
   reduce_lr_metric: 'train_loss'  # Metric to use for learning rate reduction
-  reduce_lr_patience: 25         # Number of epochs to wait before reducing learning rate
-  reduce_lr_factor: 0.5         # Factor to reduce learning rate by
+  reduce_lr_patience: 100         # Number of epochs to wait before reducing learning rate
+  reduce_lr_factor: 0.75         # Factor to reduce learning rate by
 
   pl_settings:
     checkpoint_saving_metric: "train_loss"

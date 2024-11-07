@@ -22,7 +22,7 @@ config = OmegaConf.load("configs/config_lr.yaml")
 model_type = config.model.model_type
 if model_type=="unet":
     model_lr = UNet_pl(config)
-ckpt = torch.load("/data1/simon/GitHub2/building_segmentation/logs/v1/lr.ckpt")
+ckpt = torch.load("/data1/simon/GitHub2/building_segmentation/logs/v1_unet/lr.ckpt")
 model_lr.load_state_dict(ckpt['state_dict'])
 
 
@@ -38,7 +38,7 @@ val_obj.calculate_masks_metrics(dataloader=dataloader_lr, model=model_lr, pred_t
 # 2.1 Load Model and weights
 config = OmegaConf.load("configs/config_hr.yaml")
 model_hr = UNet_pl(config)
-ckpt = torch.load("/data1/simon/GitHub2/building_segmentation/logs/v1/hr.ckpt")
+ckpt = torch.load("/data1/simon/GitHub2/building_segmentation/logs/v1_unet/hr.ckpt")
 model_hr.load_state_dict(ckpt['state_dict'])
 # 2.2 Load Data
 data_module = pl_datamodule(config)
@@ -52,7 +52,7 @@ val_obj.calculate_masks_metrics(dataloader=dataloader_hr, model=model_hr, pred_t
 # 3.1 Load Model and weights
 config = OmegaConf.load("configs/config_lr.yaml")
 model_sr = UNet_pl(config)
-ckpt = torch.load("/data1/simon/GitHub2/building_segmentation/logs/v1/sr.ckpt")
+ckpt = torch.load("/data1/simon/GitHub2/building_segmentation/logs/v1_unet/sr.ckpt")
 model_sr.load_state_dict(ckpt['state_dict'])
 # 3.2 Load Data
 data_module = pl_datamodule(config)
@@ -72,5 +72,5 @@ val_obj.get_mAP_curve(dataloader_sr, model_sr, pred_type="SR", amount_batches=20
 
 # plot mAP curve
 mAP_plot = val_obj.plot_mAP_curve()
-mAP_plot.save("mAP_plot.png")
+mAP_plot.save("images/mAP_plot.png")
 
