@@ -13,8 +13,13 @@ from datetime import datetime
 import os,sys
 
 # Load the model --------------------------------------------------------------
+default_config_path = "configs/config_lr.yaml" # set default path to config file
+
+# Check if a config path is provided as a command-line argument
+config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path # get argument
 from model_files import model_pl
-config = OmegaConf.load("configs/config_lr.yaml")
+config = OmegaConf.load(config_path)
+print("Loaded Config from:",config_path)
 model = model_pl(config) # model selection is handled by the model_pl function
 
 
@@ -68,6 +73,9 @@ print("Experiment Path:",dir_save_checkpoints)
 
 # save config file to dict
 config_dict = OmegaConf.to_container(config)
+# if path doesnt exist, create
+if not os.path.exists(dir_save_checkpoints):
+    os.makedirs(dir_save_checkpoints)
 with open(os.path.join(dir_save_checkpoints,"train_config.yaml"),'w') as f:
     f.write(str(config_dict))
     

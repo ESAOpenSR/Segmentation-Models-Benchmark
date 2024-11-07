@@ -28,41 +28,52 @@ class BoundaryAwareLoss(torch.nn.Module):
 
     def forward(self, pred, target):
         # Dice loss on the entire mask
+        pred,target = pred.squeeze(),target.squeeze()
         dice = self.dice_loss(pred, target)
         
         # Boundary mask
         boundary_mask = self.get_boundary_mask(target, dilation_ratio=self.dilation_ratio)
         
         # BCE loss only on boundary pixels
-        bce_boundary = F.binary_cross_entropy(pred * boundary_mask, target * boundary_mask, reduction='mean')
+        bce_boundary = F.binary_cross_entropy(torch.sigmoid(pred) * boundary_mask, target * boundary_mask, reduction='mean')
         
         # Combined loss
         loss = self.alpha * dice + self.beta * bce_boundary
         return loss
     
     
-    def get_boundary_mask(self,mask, dilation_ratio=0.02):
+    def get_boundary_mask(self, mask, dilation_ratio=0.02):
         """
         Generate a boundary mask by dilating and eroding the binary mask.
         
         Parameters:
-        - mask (torch.Tensor): The input binary mask of shape (H, W).
+        - mask (torch.Tensor): The input binary mask of shape (B, H, W) or (B, 1, H, W).
         - dilation_ratio (float): Ratio to determine the boundary thickness (default: 2% of the image diagonal).
         
         Returns:
-        - torch.Tensor: A boundary mask highlighting edges.
+        - torch.Tensor: A boundary mask highlighting edges for each image in the batch.
         """
-        # Convert to numpy for morphological operations
-        mask_np = mask.cpu().numpy().astype(np.uint8)
+        boundary_masks = []
+        batch_size = mask.shape[0]
+        height, width = mask.shape[-2], mask.shape[-1]
         
         # Calculate the kernel size for boundary extraction based on image size
-        kernel_size = int(dilation_ratio * np.sqrt(mask_np.shape[0] ** 2 + mask_np.shape[1] ** 2))
+        kernel_size = int(dilation_ratio * np.sqrt(height ** 2 + width ** 2))
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
         
-        # Dilate and erode
-        dilated = cv2.dilate(mask_np, kernel, iterations=1)
-        eroded = cv2.erode(mask_np, kernel, iterations=1)
+        for i in range(batch_size):
+            # Convert each mask to numpy
+            mask_np = mask[i].squeeze().cpu().numpy().astype(np.uint8)
+            
+            # Dilate and erode
+            dilated = cv2.dilate(mask_np, kernel, iterations=1)
+            eroded = cv2.erode(mask_np, kernel, iterations=1)
+            
+            # Boundary is the difference between dilation and erosion
+            boundary = dilated - eroded
+            boundary_masks.append(torch.from_numpy(boundary).float())
         
-        # Boundary is the difference between dilation and erosion
-        boundary = dilated - eroded
-        return torch.from_numpy(boundary).float().to(mask.device)
+        # Stack and reshape boundary masks back to match input batch shape
+        boundary_masks = torch.stack(boundary_masks).unsqueeze(1)  # Add channel dimension
+        return boundary_masks.to(mask.device)
+    

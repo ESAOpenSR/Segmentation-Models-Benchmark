@@ -7,7 +7,7 @@ model:
 training:
   wandb_project_name: 'building_comparison_DL'     # Name of the Weights & Biases project
   optim: 'adam'  
-  loss: 'BCEWithLogitsLoss'     # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
+  loss: 'BoundaryAwareLoss'     # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
   learning_rate: 2e-4            # Learning rate for the optimizer
   weight_decay: 1e-8            # Weight decay (L2 regularization)
   momentum: 0.999               # Momentum for optimizer (e.g., RMSprop or SGD)
@@ -20,7 +20,7 @@ training:
     checkpoint_saving_metric: "train_loss"
     early_stop_metric: "train_loss"
     accelerator: 'cuda'
-    devices:  [0]
+    devices:  [1]
     strategy: "ddp"
     check_val_every_n_epoch: 10 # has to be int
     log_every_n_steps: 100
@@ -28,7 +28,7 @@ training:
     max_epochs: 100000
     limit_val_batches: 5
     continue_training: False #"logs/building_comparison/2024-10-10_22-35-39/last.ckpt"
-    load_weights_only: false # false, or ckpt path
+    load_weights_only: False # false, or ckpt path
 
 data:
   dataset_type: "RS"            # ["fake", "RS"]

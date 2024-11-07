@@ -28,11 +28,12 @@ class model_pl(pl.LightningModule):
         
     def get_loss_fn(self):
         loss_command = self.config.training.loss
+        print("Creating loss of type:",loss_command)
         if loss_command=="BCEWithLogitsLoss":
             self.criterion = nn.CrossEntropyLoss() if self.n_classes > 1 else nn.BCEWithLogitsLoss()
         elif loss_command=="BoundaryAwareLoss":
             from utils.losses import BoundaryAwareLoss
-            self.criterion = BoundaryAwareLoss(dilation_ratio=0.02, alpha=1.0, beta=1.0) 
+            self.criterion = BoundaryAwareLoss(dilation_ratio=0.02, alpha=1.0, beta=1.0)
         else:
             raise ValueError("Invalid Loss Function")
         
@@ -67,6 +68,10 @@ class model_pl(pl.LightningModule):
         
     def forward(self, x):
         return self.model(x)
+    
+    @torch.no_grad()
+    def predict(self, x):
+        return torch.sigmoid(self.forward(x))
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -76,41 +81,44 @@ class model_pl(pl.LightningModule):
             
             # Assuming binary segmentation (1 channel output)
             loss = self.criterion(y_hat, y.float())  # Main loss (e.g., BCEWithLogitsLoss) #.squeeze(1)
-            loss += dice_loss(torch.sigmoid(y_hat), y.float(), multiclass=False)  # Dice loss
+            #loss += dice_loss(torch.sigmoid(y_hat), y.float(), multiclass=False)  # Dice loss
         self.log('train_loss', loss)
 
+        # apply sigmoid, then thresh
+        y_hat_thresh = (torch.sigmoid(y_hat.clone())>self.conf_threshold)*1
+        
         # Metrics
         if self.is_trainer_attached():
             # get training dict
-            if batch_idx%10==0:
-                loss_px_dict,status_px = calculate_metrics(y,y_hat,phase="train")
-                loss_obj_dict,status_obj = calculate_object_metrics(y,y_hat,phase="train")
+            if batch_idx%50==0:
+                loss_px_dict,status_px = calculate_metrics(y,y_hat_thresh,phase="train")
+                loss_obj_dict,status_obj = calculate_object_metrics(y,y_hat_thresh,phase="train")
                 if status_px:   
                     self.log_dict(loss_px_dict, prog_bar=False, logger=True, on_step=True, on_epoch=False,sync_dist=True)
                 if status_obj:
                     self.log_dict(loss_obj_dict, prog_bar=False, logger=True, on_step=True, on_epoch=False,sync_dist=True)
             if batch_idx%50==0:
                 # get building id metrics
-                y_hat_thres = (torch.sigmoid(y_hat)>self.conf_threshold)*1
-                building_id_dict = self.get_building_id_metrics(y_hat_thres,y,phase="train")
+                #y_hat_thres = (torch.sigmoid(y_hat)>self.conf_threshold)*1
+                y_hat_clone = y_hat.clone().detach()
+                building_id_dict = self.get_building_id_metrics(y_hat_clone,y,phase="train")
                 self.log_dict(building_id_dict, prog_bar=False, logger=True, on_step=True, on_epoch=False,sync_dist=True)
         return loss
     
     @torch.no_grad()
     def validation_step(self,batch,batch_idx):
         x, y = batch # get Data
-        y_hat = self.forward(x) # Forward pass
+        y_hat = self.predict(x) # Forward pass
         val_loss = self.criterion(y_hat, y.float())  # Main loss (e.g., BCEWithLogitsLoss)
-        val_loss += dice_loss(torch.sigmoid(y_hat), y.float(), multiclass=False)  # Dice loss to  main loss
+        #val_loss += dice_loss(y_hat, y.float(), multiclass=False)  # Dice loss to  main loss
         self.log('val_loss', val_loss) # Log
         
-        #y_hat_orig = y_hat.clone()
-        y_hat = torch.sigmoid(y_hat)
-
+        y_hat_thresh = (y_hat.clone()>self.conf_threshold)*1 # Thresholding, sigmoid in predict
+        
         # Metrics
         if self.is_trainer_attached():
-            loss_px_dict,status_px = calculate_metrics(y,y_hat,phase="val")
-            loss_obj_dict,status_obj = calculate_object_metrics(y,y_hat,phase="val")
+            loss_px_dict,status_px = calculate_metrics(y,y_hat_thresh,phase="val")
+            loss_obj_dict,status_obj = calculate_object_metrics(y,y_hat_thresh,phase="val")
             if status_px: # log only if valid metrics are returned
                 self.log_dict(loss_px_dict, prog_bar=False, logger=True, on_step=True, on_epoch=False,sync_dist=True)
             if status_obj: # log only if valid metrics are returned
@@ -120,8 +128,9 @@ class model_pl(pl.LightningModule):
                 self.logger.experiment.log({"images/Validation": [wandb.Image(val_image)]})
                 
                 # get building id metrics
-                y_hat_thres = (y_hat>self.conf_threshold)*1
-                building_id_dict = self.get_building_id_metrics(y_hat_thres,y,phase="val")
+                #y_hat_thres = (y_hat>self.conf_threshold)*1
+                y_hat_clone = y_hat.clone().detach()
+                building_id_dict = self.get_building_id_metrics(y_hat_clone,y,phase="val")
                 self.log_dict(building_id_dict, prog_bar=False, logger=True, on_step=True, on_epoch=False,sync_dist=True)
         return val_loss
     
@@ -167,7 +176,7 @@ class model_pl(pl.LightningModule):
                 'optimizer': optimizer,
                 'lr_scheduler': {
                     'scheduler': scheduler,
-                    'monitor': self.config.training.reduce_lr_metric,  # Maximize the dice score
+                    'monitor': self.config.training.reduce_lr_metric,  # Maximize the criterion score
                     'interval': 'epoch',
                     'frequency': 1,
                 },
@@ -187,3 +196,6 @@ if __name__ == "__main__":
     model.training_step(batch,50)
     model.validation_step(batch,2)
 
+
+    a,b  = torch.rand(1,256,256).cuda(),torch.rand(1,1,256,256).cuda()
+    model.criterion.forward(a,b)

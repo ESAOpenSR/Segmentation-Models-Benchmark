@@ -73,14 +73,13 @@ def log_images(images, masks, preds, title="Training"):
         axes[i][1].axis('off')
 
         # Plot predicted mask image
-        draw_red = True
+        draw_red = False
         if draw_red:
-            high_threshold,low_threshold = 0.75,0.1
             pred = plot_mask_with_threshold(pred,
-                                            low_threshold=low_threshold,
-                                            high_threshold=low_threshold)
+                                            low_threshold=0.1,
+                                            high_threshold=0.75)
             axes[i][2].imshow(pred, interpolation='none')
-            axes[i][2].set_title(f"Predicted Mask\n({str(high_threshold)} in red)")
+            axes[i][2].set_title(f"Predicted Mask\n({str(0.75)} in red)")
         else:
             axes[i][2].imshow(pred, cmap=cmap, interpolation='none')
             axes[i][2].set_title("Predicted Mask")
@@ -113,7 +112,7 @@ def plot_mask_with_threshold(mask, low_threshold=0.2, high_threshold=0.75):
 
     # Stretch values between low_threshold and high_threshold
     mask_in_range = (mask >= low_threshold) & (mask <= high_threshold)
-    mask[mask_in_range] = (mask[mask_in_range] - low_threshold) / (high_threshold - low_threshold) * 0.99999
+    mask[mask_in_range] = (mask[mask_in_range] - low_threshold) / (high_threshold - low_threshold) * 0.99
 
     # Initialize RGB image with zeros (black)
     rgb_image = np.zeros((*mask.shape, 3), dtype=np.uint8)
