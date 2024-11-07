@@ -2,6 +2,7 @@ config_3band.yaml
 *.geojson
 *.json
 old_code/
+*.log
 wandb
 wandb/*
 wandb/

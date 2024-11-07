@@ -41,7 +41,7 @@ class SegmentationDataset(Dataset):
         len_3 = len(self.data) 
         status_string = "Original Dataset Lenght for phase "+phase+": "+str(len_1)
         status_string+= " - Filtered for valid masks: "+str(len_2)
-        status_string+= " - Filtered for buildings > 0 :"+str(len_3)
+        status_string+= " - Filtered for buildings > 0: "+str(len_3)
 
         if self.image_type=="sr":
             self.validate_sr_data()

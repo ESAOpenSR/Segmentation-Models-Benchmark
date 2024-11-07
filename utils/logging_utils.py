@@ -15,27 +15,6 @@ def minmax_percentile(im,percentile=3):
     im = np.clip(im,0,1)
     return im
 
-def visualize_red_and_gray(image,v=0.5):
-    """
-    Visualizes areas over 0.5 in red and the rest in shades of gray.
-
-    Parameters:
-    - image: A 2D numpy array with values ranging from 0 to 1.
-    """
-    # Create an empty RGB image with the same height and width as the input image
-    rgb_image = np.zeros((*image.shape, 3))
-
-    # Areas over 0.5: paint them in red (set the red channel to 1)
-    red_mask = image > v
-    rgb_image[red_mask, 0] = 1  # Red channel for areas > 0.5
-
-    # Areas 0 to 0.5: paint them in grayscale
-    gray_mask = ~red_mask
-    rgb_image[gray_mask] = np.stack([image[gray_mask]] * 3, axis=-1)  # Set R, G, and B to the same value
-    #rgb_image = rgb_image.clip(0, 1)  # Clip values to the range [0, 1]
-    return rgb_image
-
-
 def log_images(images, masks, preds, title="Training"):
     """
     Plots up to 5 images stacked vertically. For each batch sample, 
@@ -94,12 +73,14 @@ def log_images(images, masks, preds, title="Training"):
         axes[i][1].axis('off')
 
         # Plot predicted mask image
-        draw_red = False
+        draw_red = True
         if draw_red:
-            red_v = 0.75
-            pred = visualize_red_and_gray(pred,v=red_v)
-            axes[i][2].imshow(pred, cmap=cmap, interpolation='none')
-            axes[i][2].set_title("Predicted Mask\n>"+str(red_v)+" conf in red")
+            high_threshold,low_threshold = 0.75,0.1
+            pred = plot_mask_with_threshold(pred,
+                                            low_threshold=low_threshold,
+                                            high_threshold=low_threshold)
+            axes[i][2].imshow(pred, interpolation='none')
+            axes[i][2].set_title(f"Predicted Mask\n({str(high_threshold)} in red)")
         else:
             axes[i][2].imshow(pred, cmap=cmap, interpolation='none')
             axes[i][2].set_title("Predicted Mask")
@@ -118,6 +99,34 @@ def log_images(images, masks, preds, title="Training"):
 
     return pil_image
 
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+def plot_mask_with_threshold(mask, low_threshold=0.2, high_threshold=0.75):
+    # Convert the mask to a NumPy array if needed
+    mask = mask.numpy() if isinstance(mask, torch.Tensor) else np.array(mask)
+
+    # Set values below low_threshold to 0
+    mask[mask < low_threshold] = 0
+    # Set values above high_threshold to 1
+    mask[mask > high_threshold] = 1
+
+    # Stretch values between low_threshold and high_threshold
+    mask_in_range = (mask >= low_threshold) & (mask <= high_threshold)
+    mask[mask_in_range] = (mask[mask_in_range] - low_threshold) / (high_threshold - low_threshold) * 0.99999
+
+    # Initialize RGB image with zeros (black)
+    rgb_image = np.zeros((*mask.shape, 3), dtype=np.uint8)
+    
+    # Create grayscale for intermediate values (between 0 and 1)
+    grayscale_values = (mask * 255).astype(np.uint8)
+    rgb_image[mask > 0] = np.stack([grayscale_values[mask > 0]] * 3, axis=-1)
+    
+    # Set bright red for values that are exactly 1
+    rgb_image[mask == 1] = [255, 0, 0]
+    
+    return rgb_image
+
 
 if __name__ == "__main__":
     # datamodule
@@ -131,5 +140,15 @@ if __name__ == "__main__":
     # Plot the images
     pil_image = log_images(images, masks, preds, title="Validation")
     pil_image.save("sample_images_2.png")
+    
+    # Test RGB-Thresholding
+    import torch
+    res = plot_mask_with_threshold(torch.rand(256,256))
+    # Plot the mask
+    plt.imshow(res,interpolation='none')
+    plt.colorbar()
+    plt.axis('off')
+    plt.savefig("sample_mask.png")
+    plt.close()
 
 

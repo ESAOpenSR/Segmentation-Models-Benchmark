@@ -32,8 +32,10 @@ else:
         print("Continuing training from:",continue_training)
         
 if config.training.pl_settings.load_weights_only not in [False,None]:
-    ckpt = torch.load("logs/building_comparison/2024-10-10_22-35-39/last.ckpt")
+    ckpt_path = config.training.pl_settings.load_weights_only
+    ckpt = torch.load(ckpt_path)
     model.load_state_dict(ckpt['state_dict'])
+    print("Loaded weights only from:",ckpt_path)
 
 
 

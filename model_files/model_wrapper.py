@@ -22,9 +22,19 @@ class model_pl(pl.LightningModule):
 
         # extract model settings
         self.n_classes = config.model.n_classes
-        self.criterion = nn.CrossEntropyLoss() if self.n_classes > 1 else nn.BCEWithLogitsLoss()
         self.conf_threshold = config.model.conf_threshold
         self.model = self.get_model(config) # get model from function
+        self.get_loss_fn() # get loss function
+        
+    def get_loss_fn(self):
+        loss_command = self.config.training.loss
+        if loss_command=="BCEWithLogitsLoss":
+            self.criterion = nn.CrossEntropyLoss() if self.n_classes > 1 else nn.BCEWithLogitsLoss()
+        elif loss_command=="BoundaryAwareLoss":
+            from utils.losses import BoundaryAwareLoss
+            self.criterion = BoundaryAwareLoss(dilation_ratio=0.02, alpha=1.0, beta=1.0) 
+        else:
+            raise ValueError("Invalid Loss Function")
         
     def get_model(self,config):
         print("Creating Model of Type",config.model.model_type)
@@ -44,7 +54,7 @@ class model_pl(pl.LightningModule):
             model = smp.DeepLabV3Plus(encoder_name='resnet34',
                                            encoder_depth=5,
                                            encoder_weights=None,
-                                           encoder_output_stride=16,
+                                           encoder_output_stride=8, # changed from 16 to 8 for sharper borders
                                            decoder_channels=256,
                                            decoder_atrous_rates=(12, 24, 36),
                                            in_channels=4, classes=1,
@@ -136,13 +146,13 @@ class model_pl(pl.LightningModule):
             return False
 
     def configure_optimizers(self):
-            if self.config.training.optimizer=="RMSprop":
+            if self.config.training.optim=="RMSprop":
                 optimizer = optim.RMSprop(self.model.parameters(),
                                         lr=self.config.training.learning_rate,
                                         weight_decay=self.config.training.weight_decay,
                                         momentum=self.config.training.momentum,
                                         foreach=True)
-            elif self.config.training.optimizer=="adam":
+            elif self.config.training.optim=="adam":
                 optimizer = optim.Adam(self.model.parameters(),
                                         lr=self.config.training.learning_rate,
                                         weight_decay=self.config.training.weight_decay)
