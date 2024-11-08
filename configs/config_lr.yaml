@@ -7,7 +7,7 @@ model:
 training:
   wandb_project_name: 'building_comparison_DL'     # Name of the Weights & Biases project
   optim: 'adam'                 # Optimizer to use (e.g., adam, RMSprop)
-  loss: 'BoundaryAwareLoss'     # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
+  loss: 'BCEWithLogitsLoss'     # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
   learning_rate: 2e-4           # Learning rate for the optimizer
   weight_decay: 1e-8            # Weight decay (L2 regularization)
   momentum: 0.999               # Momentum for optimizer (e.g., RMSprop or SGD)

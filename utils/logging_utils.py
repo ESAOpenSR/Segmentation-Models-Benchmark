@@ -84,7 +84,7 @@ def log_images(images, masks, preds, title="Training"):
             axes[i][2].imshow(pred, cmap=cmap, interpolation='none')
             axes[i][2].set_title("Predicted Mask")
         axes[i][2].axis('off')
-    
+     
     # Adjust layout
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     #plt.savefig("sample_images.png")

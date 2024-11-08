@@ -24,4 +24,7 @@ To train a segmentation model:
 3. **Validate**: Run validate.py
 - Give models and loaded weights + dataloaders to opensr-usecases package to get validation metrics.
 
-
+### Example Output
+The validation outputs a numerical caluclation of the improvement of SR basic imagery over LR, as well as mAP curves for all data types
+![example_output](resources/example_output.png)
+![example_output](resources/mAP_plot.png)
