@@ -34,6 +34,7 @@ data:
   dataset_type: "RS"            # ["fake", "RS"]
   bands: 4                      # Number of bands in the input image
   interpolation_size: 512       # Size of the interpolated image
+  interpolation_type: 'bicubic' # Type of interpolation to use
   crop: True                    # Crop the image to the wanted size
   data_type: 'lr'               # Type of data to use (e.g., lr,sr,hr)
   no_workers: 16                # Number of workers for the DataLoader

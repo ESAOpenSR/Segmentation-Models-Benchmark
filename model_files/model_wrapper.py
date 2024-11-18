@@ -34,6 +34,9 @@ class model_pl(pl.LightningModule):
         elif loss_command=="BoundaryAwareLoss":
             from utils.losses import BoundaryAwareLoss
             self.criterion = BoundaryAwareLoss(dilation_ratio=0.02, alpha=1.0, beta=1.0)
+        elif loss_command=="QRLoss":
+            from utils.losses import QRLoss
+            self.criterion = QRLoss()
         else:
             raise ValueError("Invalid Loss Function")
         
@@ -48,7 +51,7 @@ class model_pl(pl.LightningModule):
             model = smp.Unet(
                 encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,     # use `imagenet` pre-trained weights for encoder initialization
-                in_channels=4,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                in_channels=config.model.n_channels, # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
                 classes=1,)                      # model output channels (number of classes in your dataset)
         elif config.model.model_type=="DeepLabV3Plus":
             import segmentation_models_pytorch as smp
@@ -62,6 +65,9 @@ class model_pl(pl.LightningModule):
                                            activation=None, upsampling=4,
                                            aux_params=None)
 
+        elif "torchgeo" in config.model.model_type:
+            from model_files.torchgeo_models import create_torchgeo_models
+            model = create_torchgeo_models(config)
         else:
             raise ValueError("Invalid Model Type")
         return model

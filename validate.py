@@ -62,9 +62,9 @@ metrics = val_obj.return_raw_metrics()
 val_obj.print_sr_improvement()
 
 # calculate mAP curves
-val_obj.get_mAP_curve(dataloader_lr, model_lr, pred_type="LR", amount_batches=20)
-val_obj.get_mAP_curve(dataloader_hr, model_hr, pred_type="HR", amount_batches=20)
-val_obj.get_mAP_curve(dataloader_sr, model_sr, pred_type="SR", amount_batches=20)
+val_obj.get_mAP_curve(dataloader_lr, model_lr, pred_type="LR", amount_batches=25)
+val_obj.get_mAP_curve(dataloader_hr, model_hr, pred_type="HR", amount_batches=25)
+val_obj.get_mAP_curve(dataloader_sr, model_sr, pred_type="SR", amount_batches=25)
 
 # plot mAP curve
 mAP_plot = val_obj.plot_mAP_curve()

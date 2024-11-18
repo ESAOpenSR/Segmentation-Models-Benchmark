@@ -13,7 +13,7 @@ from datetime import datetime
 import os,sys
 
 # Load the model --------------------------------------------------------------
-default_config_path = "configs/config_lr.yaml" # set default path to config file
+default_config_path = "configs/config_hr_test.yaml" # set default path to config file
 
 # Check if a config path is provided as a command-line argument
 config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path # get argument
@@ -96,20 +96,29 @@ early_stop_callback = EarlyStopping(monitor=config.training.pl_settings.early_st
                                     min_delta=0.00, patience=2500, verbose=True,
                                     mode="min",check_finite=True) # patience in epochs
 
-trainer = Trainer(
-    accelerator=config.training.pl_settings.accelerator,
-    devices=config.training.pl_settings.devices,
-    strategy=config.training.pl_settings.strategy,
-    check_val_every_n_epoch=config.training.pl_settings.check_val_every_n_epoch,
-    log_every_n_steps=config.training.pl_settings.log_every_n_steps,
-    #val_check_interval=config.training.pl_settings.val_check_interval,
-    max_epochs=config.training.pl_settings.max_epochs,
-    limit_val_batches = config.training.pl_settings.limit_val_batches,
-    resume_from_checkpoint=continue_training,
-    logger=[ wandb_logger,],
-    callbacks=[ checkpoint_callback,
-                early_stop_callback,
-                lr_monitor]  )
+
+
+# If torchgeo model is selected, run that instead of the normal model
+if config.model.model_type in ["torchgeo"]:
+    #from model_files.model_torchgeo import model_pl
+    # trainer =  ### Instanciate from torchgeo trainer
+    pass
+
+else:
+    trainer = Trainer(
+        accelerator=config.training.pl_settings.accelerator,
+        devices=config.training.pl_settings.devices,
+        strategy=config.training.pl_settings.strategy,
+        check_val_every_n_epoch=config.training.pl_settings.check_val_every_n_epoch,
+        log_every_n_steps=config.training.pl_settings.log_every_n_steps,
+        #val_check_interval=config.training.pl_settings.val_check_interval,
+        max_epochs=config.training.pl_settings.max_epochs,
+        limit_val_batches = config.training.pl_settings.limit_val_batches,
+        resume_from_checkpoint=continue_training,
+        logger=[ wandb_logger,],
+        callbacks=[ checkpoint_callback,
+                    early_stop_callback,
+                    lr_monitor]  )
 
 
 

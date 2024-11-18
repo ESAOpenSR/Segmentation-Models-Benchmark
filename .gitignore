@@ -1,3 +1,7 @@
+validation_results/
+validation_results/*
+*.txt
+config_hr_test.yaml
 config_3band.yaml
 *.geojson
 *.json

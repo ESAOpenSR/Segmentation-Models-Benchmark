@@ -77,3 +77,45 @@ class BoundaryAwareLoss(torch.nn.Module):
         boundary_masks = torch.stack(boundary_masks).unsqueeze(1)  # Add channel dimension
         return boundary_masks.to(mask.device)
     
+
+
+import torch
+import torch.nn as nn
+from torchgeo.losses import QRLoss as TorchgeoQRLoss
+
+class QRLoss(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super(QRLoss, self).__init__()
+        # Instantiate the QRLoss from torchgeo
+        self.criterion = TorchgeoQRLoss(*args, **kwargs)
+
+    def forward(self, probs: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """
+        Forward method to compute the QR loss.
+
+        Args:
+            probs (torch.Tensor): Predicted probabilities, shape (B, C, H, W).
+            target (torch.Tensor): Target probabilities, shape (B, C, H, W).
+
+        Returns:
+            torch.Tensor: Computed QR loss.
+        """
+        # Compute the QR loss using the instantiated criterion
+        loss = self.criterion(probs, target)
+        return loss
+    
+# Example usage
+if __name__ == "__main__":
+    # Dummy data
+    B, C, H, W = 2, 3, 4, 4
+    probs = torch.rand(B, C, H, W)
+    target = torch.rand(B, C, H, W)
+    
+    # Normalize to make them probabilities
+    probs = probs / probs.sum(dim=1, keepdim=True)
+    target = target / target.sum(dim=1, keepdim=True)
+
+    # Initialize the model and compute the loss
+    loss_model = QRLoss()
+    loss = loss_model(probs, target)
+    print(f"QR Loss: {loss.item()}")
