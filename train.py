@@ -55,7 +55,14 @@ else:
 data_module = pl_datamodule(config)
 
 
-# Define the Loggers
+if False:
+    # Testing
+    batch = next(iter(data_module.train_dataloader()))
+    out = model.forward(batch[0])
+    out = torch.sigmoid(out)
+    out = model.training_step(batch,0)
+
+# Define Callbacks and Loggers ------------------------------------------------
 project_name = config.training.wandb_project_name
 
 # Logging - TF
@@ -97,28 +104,21 @@ early_stop_callback = EarlyStopping(monitor=config.training.pl_settings.early_st
                                     mode="min",check_finite=True) # patience in epochs
 
 
-
-# If torchgeo model is selected, run that instead of the normal model
-if config.model.model_type in ["torchgeo"]:
-    #from model_files.model_torchgeo import model_pl
-    # trainer =  ### Instanciate from torchgeo trainer
-    pass
-
-else:
-    trainer = Trainer(
-        accelerator=config.training.pl_settings.accelerator,
-        devices=config.training.pl_settings.devices,
-        strategy=config.training.pl_settings.strategy,
-        check_val_every_n_epoch=config.training.pl_settings.check_val_every_n_epoch,
-        log_every_n_steps=config.training.pl_settings.log_every_n_steps,
-        #val_check_interval=config.training.pl_settings.val_check_interval,
-        max_epochs=config.training.pl_settings.max_epochs,
-        limit_val_batches = config.training.pl_settings.limit_val_batches,
-        resume_from_checkpoint=continue_training,
-        logger=[ wandb_logger,],
-        callbacks=[ checkpoint_callback,
-                    early_stop_callback,
-                    lr_monitor]  )
+# Configure PL Trainer ---------------------------------------------------------
+trainer = Trainer(
+    accelerator=config.training.pl_settings.accelerator,
+    devices=config.training.pl_settings.devices,
+    strategy=config.training.pl_settings.strategy,
+    check_val_every_n_epoch=config.training.pl_settings.check_val_every_n_epoch,
+    log_every_n_steps=config.training.pl_settings.log_every_n_steps,
+    #val_check_interval=config.training.pl_settings.val_check_interval,
+    max_epochs=config.training.pl_settings.max_epochs,
+    limit_val_batches = config.training.pl_settings.limit_val_batches,
+    resume_from_checkpoint=continue_training,
+    logger=[ wandb_logger,],
+    callbacks=[ checkpoint_callback,
+                early_stop_callback,
+                lr_monitor]  )
 
 
 

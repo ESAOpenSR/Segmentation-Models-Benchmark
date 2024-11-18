@@ -35,8 +35,10 @@ class model_pl(pl.LightningModule):
             from utils.losses import BoundaryAwareLoss
             self.criterion = BoundaryAwareLoss(dilation_ratio=0.02, alpha=1.0, beta=1.0)
         elif loss_command=="QRLoss":
-            from utils.losses import QRLoss
-            self.criterion = QRLoss()
+            #from utils.losses import QRLoss
+            #self.criterion = QRLoss()
+            from torchgeo.losses import QRLoss as TorchgeoQRLoss
+            self.criterion = TorchgeoQRLoss()
         else:
             raise ValueError("Invalid Loss Function")
         

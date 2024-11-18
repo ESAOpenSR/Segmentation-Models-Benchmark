@@ -134,8 +134,8 @@ class SegmentationDataset(Dataset):
         # Ensure mask is 512x512
         if mask.shape != (1,512, 512):
             raise ValueError("Mask must be of size 512x512")
-        if image.shape!= (4,512,512):
-            raise ValueError("Image must be of size 4x512x512")
+        #if image.shape!= (4,512,512):
+        #    raise ValueError("Image must be of size 4x512x512")
         
         # Split mask into four sections
         sections = {

@@ -113,7 +113,7 @@ if __name__ == "__main__":
     
     # Normalize to make them probabilities
     probs = probs / probs.sum(dim=1, keepdim=True)
-    target = target / target.sum(dim=1, keepdim=True)
+    target = torch.ones_like(probs).float()
 
     # Initialize the model and compute the loss
     loss_model = QRLoss()
