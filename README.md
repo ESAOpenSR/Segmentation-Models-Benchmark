@@ -49,7 +49,10 @@ python train.py configs/config_hr.yaml
 python validate.py >> logs/output.txt
 ```
 
-### Example Output
+### Training Status
+Check the training status at [WandB](https://api.wandb.ai/links/opensr/rvkeg67s)
+
+### Example Validation Output
 The validation is based on an external package. It outputs a numerical caluclation of the improvement of SR basic imagery over LR, as well as mAP curves for all data types  
 ![example_output](resources/example_output.png)  
 ![example_output](resources/mAP_plot.png)  
