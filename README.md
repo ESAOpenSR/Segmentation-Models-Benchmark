@@ -19,8 +19,8 @@ The following segmentation models are implemented and can be selected through th
 | UNet++             | 4               | Scratch                                      |
 | DeepLabV3          | 4               | Scratch                                      |
 | DeepLabV3+         | 4               | Scratch                                      |
-| TorchGeo ResNet18  | 3               | Pretrained on Sentinel-2 (S2) data     |
-| TorchGeo FarSeg    | 3               | Pretrained                             |  
+| TorchGeo ResNet18  | 3               | Backbone pretrained on S2 RGB                  |
+| TorchGeo FarSeg    | 3               | Backbone pretrained on S2 RGB                  |  
 
 These models are customizable via YAML configurations and are compatible with LR, HR, and SR imagery workflows. Important settings when changing models:
 - Set number of bands in both model and data section
