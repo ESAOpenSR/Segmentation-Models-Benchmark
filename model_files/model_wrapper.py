@@ -35,10 +35,11 @@ class model_pl(pl.LightningModule):
             from utils.losses import BoundaryAwareLoss
             self.criterion = BoundaryAwareLoss(dilation_ratio=0.02, alpha=1.0, beta=1.0)
         elif loss_command=="QRLoss":
-            #from utils.losses import QRLoss
-            #self.criterion = QRLoss()
             from torchgeo.losses import QRLoss as TorchgeoQRLoss
             self.criterion = TorchgeoQRLoss()
+        elif loss_command=="RQLoss":
+            from torchgeo.losses import RQLoss
+            self.criterion = RQLoss()
         else:
             raise ValueError("Invalid Loss Function")
         
@@ -88,7 +89,10 @@ class model_pl(pl.LightningModule):
             y_hat = self.forward(x)
             
             # Assuming binary segmentation (1 channel output)
-            loss = self.criterion(y_hat, y.float())  # Main loss (e.g., BCEWithLogitsLoss) #.squeeze(1)
+            if self.config.training.loss_req_sig:
+                loss = self.criterion(torch.sigmoid(y_hat), y.float())  # Main loss (e.g., BCEWithLogitsLoss) #.squeeze(1)
+            else:
+                loss = self.criterion(y_hat, y.float())
             #loss += dice_loss(torch.sigmoid(y_hat), y.float(), multiclass=False)  # Dice loss
         self.log('train_loss', loss)
 

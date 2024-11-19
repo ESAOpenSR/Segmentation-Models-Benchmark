@@ -7,10 +7,9 @@ from tqdm import tqdm
 from einops import rearrange
 import matplotlib.pyplot as plt
 from omegaconf import OmegaConf
-import wandb
 from pytorch_lightning import Trainer
 from datetime import datetime
-import os,sys
+import os,sys,wandb
 
 # Load the model --------------------------------------------------------------
 default_config_path = "configs/config_hr_test.yaml" # set default path to config file
