@@ -13,12 +13,15 @@ The project leverages PyTorch Lightning for model training and Weights & Biases 
 
 ## Models
 The following segmentation models are implemented and can be selected through the configuration files in the configs/ directory:  
-- UNet - Supports 4-band input.
-- UNet++ - Enhanced version of UNet, also supports 4-band input.
-- DeepLabV3 - Implementation for 4-band input.
-- DeepLabV3+ - Advanced version of DeepLabV3, designed for 4-band input.
-- TorchGeo ResNet18 - Pretrained on Sentinel-2 (S2) data, supports 3-band input.
-- TorchGeo FarSeg - Pretrained model, supports 3-band input.
+| Model Name         | Number of Bands | Pretrained Status                       |
+|---------------------|-----------------|-----------------------------------------|
+| UNet               | 4               | Scratch                                      |
+| UNet++             | 4               | Scratch                                      |
+| DeepLabV3          | 4               | Scratch                                      |
+| DeepLabV3+         | 4               | Scratch                                      |
+| TorchGeo ResNet18  | 3               | Pretrained on Sentinel-2 (S2) data     |
+| TorchGeo FarSeg    | 3               | Pretrained                             |  
+
 These models are customizable via YAML configurations and are compatible with LR, HR, and SR imagery workflows. Important settings when changing models:
 - Set number of bands in both model and data section
 - Set appropriate loss, define wether sigmoid needs to be applied
