@@ -36,10 +36,18 @@ To train a segmentation model:
 - Set the LR-SR-HR paramter
 - if using dataloaders from this project, make sure to change the data information like path and interpolation setttings
 
-2. **Run Training**: Run train.py to start training, adjust which config to use
+2. **Run Training**: Run train.py to start training, adjust which config to use. Either pass config file as argument from CL, or hardcode.  
+```bash
+python train.py configs/config_hr.yaml
+```
 
 3. **Validate**: Run validate.py
-- Give models and loaded weights + dataloaders to opensr-usecases package to get validation metrics.
+- Give models and loaded weights + dataloaders to opensr-usecases package to get validation metrics, hardcoded in script.
+- output in package format, as both text and mAP curve image.
+- optionally, send output to txt file 
+```bash
+python validate.py >> logs/output.txt
+```
 
 ### Example Output
 The validation is based on an external package. It outputs a numerical caluclation of the improvement of SR basic imagery over LR, as well as mAP curves for all data types  
