@@ -54,7 +54,7 @@ else:
 data_module = pl_datamodule(config)
 
 
-if False:
+if True:
     # Testing
     batch = next(iter(data_module.train_dataloader()))
     out = model.forward(batch[0])
