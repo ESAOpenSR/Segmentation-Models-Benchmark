@@ -40,6 +40,9 @@ class model_pl(pl.LightningModule):
         elif loss_command=="RQLoss":
             from torchgeo.losses import RQLoss
             self.criterion = RQLoss()
+        elif loss_command=="FocalLoss":
+            from utils.losses import FocalTverskyLoss
+            self.criterion = FocalTverskyLoss().forward
         else:
             raise ValueError("Invalid Loss Function")
         

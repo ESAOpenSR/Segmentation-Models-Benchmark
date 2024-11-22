@@ -119,3 +119,75 @@ if __name__ == "__main__":
     loss_model = QRLoss()
     loss = loss_model(probs, target)
     print(f"QR Loss: {loss.item()}")
+    
+    
+import torch
+import torch.nn as nn
+
+class FocalTverskyLoss(nn.Module):
+    def __init__(self, alpha=0.3, beta=0.7, gamma=0.75, smooth=1e-6):
+        """
+        Initialize the Focal Tversky Loss.
+        
+        Args:
+        - alpha: Weight for false positives (default: 0.7).
+        - beta: Weight for false negatives (default: 0.3).
+        - gamma: Focusing parameter (default: 0.75).
+        - smooth: Smoothing factor to avoid division by zero (default: 1e-6).
+        """
+        super(FocalTverskyLoss, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
+        self.smooth = smooth
+        print(f"Focal Tversky Loss with alpha={alpha}, beta={beta}, gamma={gamma}, smooth={smooth}")
+
+    def forward(self, y_pred, y_true):
+        """
+        Compute the Focal Tversky Loss.
+        
+        Args:
+        - y_pred: Predicted logits or probabilities (BxCxHxW or BxHxW).
+        - y_true: Ground truth binary mask (same shape as y_pred).
+        
+        Returns:
+        - Focal Tversky Loss value.
+        """
+        # Ensure predictions are probabilities
+        #y_pred = torch.sigmoid(y_pred)
+        
+        # Flatten tensors to compute the Tversky index
+        y_pred_flat = y_pred.view(-1)
+        y_true_flat = y_true.view(-1)
+        
+        # Compute true positives, false positives, and false negatives
+        true_positive = torch.sum(y_pred_flat * y_true_flat)
+        false_positive = torch.sum(y_pred_flat * (1 - y_true_flat))
+        false_negative = torch.sum((1 - y_pred_flat) * y_true_flat)
+        
+        # Compute the Tversky index
+        tversky_index = (true_positive + self.smooth) / (
+            true_positive + self.alpha * false_positive + self.beta * false_negative + self.smooth
+        )
+        
+        # Compute the Focal Tversky Loss
+        focal_tversky_loss = (1 - tversky_index) ** self.gamma
+        return focal_tversky_loss
+    
+   
+# Example usage
+if __name__ == "__main__":
+    # Dummy data
+    B, C, H, W = 2, 3, 4, 4
+    probs = torch.rand(B, C, H, W)
+    target = torch.rand(B, C, H, W)
+    
+    # Normalize to make them probabilities
+    probs = probs / probs.sum(dim=1, keepdim=True)
+    target = torch.ones_like(probs).float()
+
+    # Initialize the model and compute the loss
+    loss_model = FocalTverskyLoss()
+    loss = loss_model(probs, target)
+    print(f"focal_tversky_loss: {loss.item()}")
+    
