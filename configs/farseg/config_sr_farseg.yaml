@@ -1,0 +1,43 @@
+model:
+  model_type: "torchgeo_farseg"            # Model type (e.g., unet, deeplabv3)
+  n_channels: 3                 # Number of input channels (e.g., RGB image has 3 channels)
+  n_classes: 1                  # Number of output classes for the segmentation task
+  conf_threshold: 0.75           # Confidence threshold for the segmentation task
+
+training:
+  wandb_project_name: 'building_comparison_farseg'     # Name of the Weights & Biases project
+  optim: 'adam'  
+  loss: 'FocalLoss'                # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
+  loss_req_sig: True            # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
+  learning_rate: 2e-4            # Learning rate for the optimizer
+  weight_decay: 1e-8            # Weight decay (L2 regularization)
+  momentum: 0.999               # Momentum for optimizer (e.g., RMSprop or SGD)
+  amp: false                    # Automatic Mixed Precision (True/False)
+  reduce_lr_metric: 'train_loss'  # Metric to use for learning rate reduction
+  reduce_lr_patience: 200         # Number of epochs to wait before reducing learning rate
+  reduce_lr_factor: 0.75         # Factor to reduce learning rate by
+
+  pl_settings:
+    checkpoint_saving_metric: "train_loss"
+    early_stop_metric: "train_loss"
+    accelerator: 'cuda'
+    devices:  [0]
+    strategy: "ddp"
+    check_val_every_n_epoch: 10 # has to be int
+    log_every_n_steps: 100
+    #val_check_interval: 10 # float for percentage 0.25
+    max_epochs: 100000
+    limit_val_batches: 5
+    continue_training: False #"logs/building_comparison/2024-10-10_22-35-39/last.ckpt"
+    load_weights_only: False #"logs/building_comparison_DL/2024-11-06_12-23-45/last.ckpt" # false, or ckpt path
+
+data:
+  dataset_type: "RS"            # ["fake", "RS"]
+  bands: 3                      # Number of bands in the input image
+  interpolation_size: 512       # Size of the interpolated image
+  interpolation_type: 'bicubic' # Type of interpolation to use
+  crop: True                    # Crop the image to the wanted size
+  data_type: 'sr'               # Type of data to use (e.g., lr,sr,hr)
+  no_workers: 16                # Number of workers for the DataLoader
+  batch_size: 32                # Batch size for the DataLoader
+
