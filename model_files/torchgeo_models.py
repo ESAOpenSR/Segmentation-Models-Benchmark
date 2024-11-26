@@ -11,6 +11,7 @@ def create_torchgeo_models(config):
     assert config.data.bands==3,"Model only uses RGB bands. Make sure the config specifies the correct number of input channels."
     
     # get model info
+    bands = config.data.bands
     type = config.model.model_type
     classes = config.model.n_classes
 
@@ -21,7 +22,9 @@ def create_torchgeo_models(config):
     elif "farseg" in type.lower():
         from torchgeo.models import FarSeg
         model = FarSeg(backbone='resnet50', classes=classes, backbone_pretrained=True)
-
+    elif "fcn" in type.lower():
+        from torchgeo.models import FCN
+        model = FCN(bands, classes, num_filters=64)
     # return
     return model
 

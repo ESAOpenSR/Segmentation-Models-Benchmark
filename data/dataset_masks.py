@@ -181,7 +181,6 @@ class SegmentationDataset(Dataset):
 
         # adjust image size to interpolation size
         if im.shape[-1] != self.interpolation_size:
-            int_mode = self.config.data.interpolation_type
             im = torch.nn.functional.interpolate(
                 im.unsqueeze(0),
                 size=(self.interpolation_size, self.interpolation_size),
