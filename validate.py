@@ -15,18 +15,21 @@ from model_files.model_wrapper import model_pl
  
 # 0. Prepare Validation --------------------------------------------------------
 from opensr_usecases import Validator
-val_obj = Validator(device="cuda", debugging=False)
+val_obj = Validator(device="cuda", debugging=True)
 
 # Set Config and CKPT base paths
-cfg_base_path = "configs/farseg/config_XX.yaml"
-ckpt_base_path = "logs/farseg_v1/XX_farseg.ckpt"
+model_type = "fcn"
+cfg_base_path = "configs/MODEL/config_TYPE.yaml"
+ckpt_base_path = "logs/MODEL_v1/TYPE_MODEL.ckpt"
+cfg_base_path = cfg_base_path.replace("MODEL", model_type)
+ckpt_base_path = ckpt_base_path.replace("MODEL", model_type)
 
 # 1. LR ---------------------------------------------------------------------
 # 1.1 Load Model and weights
 
-config = OmegaConf.load(cfg_base_path.replace("XX", "lr"))
+config = OmegaConf.load(cfg_base_path.replace("TYPE", "lr"))
 model_lr = model_pl(config)
-ckpt = torch.load(ckpt_base_path.replace("XX", "hr"))
+ckpt = torch.load(ckpt_base_path.replace("TYPE", "lr"), map_location='cuda:0')
 model_lr.load_state_dict(ckpt['state_dict'])
 # 1.2 Load Data
 data_module = pl_datamodule(config)
@@ -37,9 +40,9 @@ val_obj.calculate_masks_metrics(dataloader=dataloader_lr, model=model_lr, pred_t
 
 # 2. HR ---------------------------------------------------------------------
 # 2.1 Load Model and weights
-config = OmegaConf.load(cfg_base_path.replace("XX", "hr"))
+config = OmegaConf.load(cfg_base_path.replace("TYPE", "hr"))
 model_hr = model_pl(config)
-ckpt = torch.load(ckpt_base_path.replace("XX", "hr"))
+ckpt = torch.load(ckpt_base_path.replace("TYPE", "hr"), map_location='cuda:0')
 model_hr.load_state_dict(ckpt['state_dict'])
 # 2.2 Load Data
 data_module = pl_datamodule(config)
@@ -51,9 +54,9 @@ val_obj.calculate_masks_metrics(dataloader=dataloader_hr, model=model_hr, pred_t
 
 # 3. SR ---------------------------------------------------------------------
 # 3.1 Load Model and weights
-config = OmegaConf.load(cfg_base_path.replace("XX", "sr"))
+config = OmegaConf.load(cfg_base_path.replace("TYPE", "sr"))
 model_sr = model_pl(config)
-ckpt = torch.load(ckpt_base_path.replace("XX", "sr"))
+ckpt = torch.load(ckpt_base_path.replace("TYPE", "sr"), map_location='cuda:0')
 model_sr.load_state_dict(ckpt['state_dict'])
 # 3.2 Load Data
 data_module = pl_datamodule(config)
@@ -78,4 +81,7 @@ val_obj.get_mAP_curve(dataloader_sr, model_sr, pred_type="SR", amount_batches=25
 # plot mAP curve
 mAP_plot = val_obj.plot_mAP_curve()
 mAP_plot.save("results/mAP_plot.png")
+
+# save examples
+val_obj.save_pred_images(output_path="results/example_images")
 

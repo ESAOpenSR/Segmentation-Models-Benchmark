@@ -18,6 +18,7 @@ class SegmentationDataset(Dataset):
     def __init__(
         self,
         root_path_jsons="/data1/simon/GitHub2/building_segmentation/data",
+        root_path_sr_images="/data3/use_cases/buildings_us/sr_images/",
         phase="test",
         image_type="lr",
         interpolation_size=512,
@@ -28,6 +29,7 @@ class SegmentationDataset(Dataset):
         self.image_type = image_type  # Either LR od HR
         self.interpolation_size = interpolation_size
         self.int_type = int_type
+        self.root_path_sr_images = root_path_sr_images
         assert self.image_type in ["lr", "hr", "sr"]
         assert bands in [3, 4]
         self.bands = bands
@@ -59,7 +61,7 @@ class SegmentationDataset(Dataset):
         print(status_string)
 
     def validate_sr_data(self):
-        image_folder_path = "/data3/use_cases/buildings_us/sr_images/"
+        image_folder_path = self.root_path_sr_images
 
         sr_validity = []
         for index, row in self.data.iterrows():
@@ -115,7 +117,7 @@ class SegmentationDataset(Dataset):
             return None, False
 
     def get_sr(self, datapoint):
-        image_folder_path = "/data3/use_cases/buildings_us/sr_images/"
+        image_folder_path = self.root_path_sr_images
         image_path = datapoint["datapoint_id"] + "_SR.tif"
         image_path = os.path.join(image_folder_path, image_path)
 
@@ -218,6 +220,7 @@ class pl_datamodule(pl.LightningDataModule):
         print("Creating dataset for Type:", self.image_type.upper())
         self.train_dataset = SegmentationDataset(
             phase="train",
+            root_path_sr_images="/data3/use_cases/buildings_us/sr_images_v2/",
             image_type=self.image_type,
             interpolation_size=interpolation_size,
             bands=bands,
@@ -226,6 +229,7 @@ class pl_datamodule(pl.LightningDataModule):
         )
         self.test_dataset = SegmentationDataset(
             phase="test",
+            root_path_sr_images="/data3/use_cases/buildings_us/sr_images_v2/",
             image_type=self.image_type,
             interpolation_size=interpolation_size,
             bands=bands,
@@ -234,6 +238,7 @@ class pl_datamodule(pl.LightningDataModule):
         )
         self.val_dataset = SegmentationDataset(
             phase="val",
+            root_path_sr_images="/data3/use_cases/buildings_us/sr_images_v2/",
             image_type=self.image_type,
             interpolation_size=interpolation_size,
             bands=bands,
@@ -270,13 +275,14 @@ if __name__ == "__main__":
     # datamodule
     from omegaconf import OmegaConf
 
-    config = OmegaConf.load("configs/config_sr.yaml")
+    config = OmegaConf.load("configs/fcn/config_sr.yaml")
     pl_dm = pl_datamodule(config)
     im, mask = next(iter(pl_dm.train_dataloader()))
 
+    """
     # iterate over dataloaders to prove validity
     from tqdm import tqdm
-
+    
     for i in tqdm(pl_dm.train_dataloader(), desc="Train"):
         assert i[0].shape == (32, 4, 256, 256), "Wrong shape: " + str(i[0].shape)
         assert i[1].shape == (32, 1, 256, 256), "Wrong shape: " + str(i[1].shape)
@@ -287,3 +293,4 @@ if __name__ == "__main__":
 
     for i in tqdm(pl_dm.test_dataloader(), desc="Test"):
         pass
+    """

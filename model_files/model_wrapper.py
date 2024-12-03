@@ -103,7 +103,10 @@ class model_pl(pl.LightningModule):
 
     @torch.no_grad()
     def predict(self, x):
-        return torch.sigmoid(self.forward(x))
+        if self.config.training.loss_req_sig:
+            return torch.sigmoid(self.forward(x))
+        else:
+            return self.forward(x)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -118,11 +121,13 @@ class model_pl(pl.LightningModule):
                 )  # Main loss (e.g., BCEWithLogitsLoss) #.squeeze(1)
             else:
                 loss = self.criterion(y_hat, y.float())
-            # loss += dice_loss(torch.sigmoid(y_hat), y.float(), multiclass=False)  # Dice loss
         self.log("train_loss", loss)
 
         # apply sigmoid, then thresh
-        y_hat_thresh = (torch.sigmoid(y_hat.clone()) > self.conf_threshold) * 1
+        if self.config.training.loss_req_sig:
+            y_hat_thresh = (torch.sigmoid(y_hat.clone()) > self.conf_threshold) * 1
+        else:
+            y_hat_thresh = (y_hat.clone() > self.conf_threshold) * 1
 
         # Metrics
         if self.is_trainer_attached():
@@ -154,7 +159,6 @@ class model_pl(pl.LightningModule):
                     )
             if batch_idx % 50 == 0:
                 # get building id metrics
-                # y_hat_thres = (torch.sigmoid(y_hat)>self.conf_threshold)*1
                 y_hat_clone = y_hat.clone().detach()
                 building_id_dict = self.get_building_id_metrics(
                     y_hat_clone, y, phase="train"

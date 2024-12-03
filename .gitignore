@@ -1,5 +1,6 @@
 validation_results/
 validation_results/*
+resuts/example_images/
 *.txt
 config_hr_test.yaml
 config_3band.yaml
