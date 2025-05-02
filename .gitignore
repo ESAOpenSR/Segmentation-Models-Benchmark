@@ -66,3 +66,7 @@ venv/
 *.spec
 dist/
 build/
+
+# pycharm
+.idea
+.venv
