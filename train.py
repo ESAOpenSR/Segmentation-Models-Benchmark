@@ -13,7 +13,9 @@ from datetime import datetime
 import os, sys, wandb
 
 # Load the model --------------------------------------------------------------
-default_config_path = "configs/fcn/config_hr.yaml"  # set default path to config file
+default_config_path = "configs/samuel_configs/deeplab/config_diffusion.yaml"  # set default path to config file
+default_config_path = "configs/samuel_configs/deeplab/config_orthophoto.yaml"  # set default path to config file
+
 
 # Check if a config path is provided as a command-line argument
 config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path  # get argument
@@ -48,7 +50,8 @@ if config.training.pl_settings.load_weights_only not in [False, None]:
 if config.data.dataset_type == "fake":
     from data.fake_dataset import pl_datamodule
 elif config.data.dataset_type == "RS":
-    from data.dataset_masks import pl_datamodule
+    #from data.dataset_masks import pl_datamodule
+    from data.dataset_austria import pl_datamodule
 else:
     print("Invalid Dataset Type: ", config.data.dataset_type)
     sys.exit(1)
@@ -71,8 +74,7 @@ tb_logger = pl_loggers.TensorBoardLogger(save_dir="logs/")
 
 # Logging - WandB
 from pytorch_lightning.loggers import WandbLogger
-
-wandb_logger = WandbLogger(project=project_name)  # ,mode="disabled")
+wandb_logger = WandbLogger(entity="zerhigh-tu-wien", project="sr_validation",)
 
 # Saving Callbacks
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -129,7 +131,7 @@ trainer = Trainer(
     # val_check_interval=config.training.pl_settings.val_check_interval,
     max_epochs=config.training.pl_settings.max_epochs,
     limit_val_batches=config.training.pl_settings.limit_val_batches,
-    resume_from_checkpoint=continue_training,
+    #resume_from_checkpoint=continue_training,
     logger=[
         wandb_logger,
     ],

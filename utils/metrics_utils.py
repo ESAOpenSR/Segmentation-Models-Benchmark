@@ -111,7 +111,7 @@ def calculate_object_metrics(mask, pred, iou_threshold=0.5,phase="train"):
         pred_boxes.append(masks_to_boxes(p.squeeze(1)))
     
     # stack boxes of masks and preds
-    gt_boxes,pred_boxes = torch.stack(gt_boxes),torch.stack(pred_boxes)
+    gt_boxes, pred_boxes = torch.stack(gt_boxes),torch.stack(pred_boxes)
 
     tp, fp, fn = 0, 0, 0
     for i in range(len(gt_boxes)):

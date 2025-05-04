@@ -1,0 +1,1 @@
+pip install torch torchgeo timm mlstac geopands h5py scipy opencv-python wandb albumentations opensr_usecases

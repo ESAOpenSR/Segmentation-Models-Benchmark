@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
-from torchmetrics import Dice
+# not used
+#from torchmetrics import Dice
 import wandb
 from omegaconf import OmegaConf, DictConfig
 from utils.metrics_utils import calculate_metrics, calculate_object_metrics
@@ -223,6 +224,7 @@ class model_pl(pl.LightningModule):
                 building_id_dict = self.get_building_id_metrics(
                     y_hat_clone, y, phase="val"
                 )
+
                 self.log_dict(
                     building_id_dict,
                     prog_bar=False,
@@ -242,8 +244,16 @@ class model_pl(pl.LightningModule):
         res_dict = res_dict["average_percentages"]
         # rename keys by appending "test"
         p_n = phase + "_BuildID"
-        res_dict = {f"{p_n}/{k}": v for k, v in res_dict.items()}
-        return res_dict
+
+        # fix samuel: dict of dicts not loggable
+        #res_dict = {f"{p_n}/{k}": v for k, v in res_dict.items()}
+        res_dicts = {f"{p_n}/{k}": v for k, v in res_dict.items()}
+        flattened_res_dict = {
+            f"{outer_key}/{inner_key}": value
+            for outer_key, inner_dict in res_dicts.items()
+            for inner_key, value in inner_dict.items()
+        }
+        return flattened_res_dict
 
     def is_trainer_attached(self):
         try:

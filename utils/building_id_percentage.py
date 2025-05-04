@@ -2,6 +2,7 @@ import numpy as np
 from scipy.ndimage import label, find_objects
 import torch
 
+
 def calculate_object_identification(mask_pred, mask_true, size_categories=None):
     
     if size_categories is None:
@@ -76,7 +77,8 @@ def calculate_object_identification(mask_pred, mask_true, size_categories=None):
             "missed_percentage": missed_percentage
         }
     }
-    
+
+
 def calculate_batched_averages(preds, targets, size_categories=None):
     #assert type(size_categories) in [dict,None], "Size categories must be a dictionary or None"
     
@@ -141,7 +143,6 @@ def calculate_batched_averages(preds, targets, size_categories=None):
             "avg_missed_percentage": avg_missed_percentage
         }
     }
-
 
 
 if __name__ == "__main__":

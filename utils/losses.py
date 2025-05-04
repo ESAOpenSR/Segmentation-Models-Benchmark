@@ -69,7 +69,7 @@ class BoundaryAwareLoss(torch.nn.Module):
             # Convert each mask to numpy
             mask_np = mask[i].squeeze().cpu().numpy().astype(np.uint8)
 
-            # Dilate and erode
+            # Dilate and erode -> switch to; scipy.ndimage import binary_dilation
             dilated = cv2.dilate(mask_np, kernel, iterations=1)
             eroded = cv2.erode(mask_np, kernel, iterations=1)
 

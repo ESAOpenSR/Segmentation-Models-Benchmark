@@ -12,7 +12,7 @@ from omegaconf import OmegaConf
 from data.dataset_masks import pl_datamodule
 from model_files.model_wrapper import model_pl
 
- 
+
 # 0. Prepare Validation --------------------------------------------------------
 from opensr_usecases import Validator
 val_obj = Validator(device="cuda", debugging=True)
