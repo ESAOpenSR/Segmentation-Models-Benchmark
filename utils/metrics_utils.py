@@ -63,6 +63,7 @@ def calculate_metrics(masks, preds,phase="train"):
             }
         return metrics_dict_ph,True
 
+
 def calculate_object_metrics(mask, pred, iou_threshold=0.5,phase="train"):
     """
     Calculate object-based metrics for a batch of predicted and ground truth bounding boxes.
@@ -95,7 +96,8 @@ def calculate_object_metrics(mask, pred, iou_threshold=0.5,phase="train"):
                     phase+"_ObjMetrics/false_negatives": np.nan,
                     }
             return metrics_dict_ph,True
-    
+
+        
     gt_boxes,pred_boxes = [],[]
     for m,p in zip(mask,pred):
         # if all 0s, workflow breaks. set 1 corner to 1 in oprder to continue

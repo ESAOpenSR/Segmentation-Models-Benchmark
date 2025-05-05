@@ -4,16 +4,50 @@ import torch
 
 
 def calculate_object_identification(mask_pred, mask_true, size_categories=None):
-    
+    """
+     Evaluates the detection performance of segmented objects (e.g., building blocks) by comparing predicted masks
+     to ground truth masks. Objects are grouped into size-based categories, and identification statistics are computed
+     for each group.
+
+     Parameters:
+         mask_pred (numpy.ndarray or torch.Tensor): Binary prediction mask with segmented objects.
+         mask_true (numpy.ndarray or torch.Tensor): Binary ground truth mask with actual objects.
+         size_categories (dict, optional): Dictionary mapping category names to size ranges (in pixels).
+             If None, defaults to predefined categories:
+                 {
+                     "xxs": (0, 4),
+                     "xs":  (4, 8),
+                     "s":   (8, 12),
+                     "m":   (12, 20),
+                     "l":   (20, 50),
+                     "xl":  (50, 999999)
+                 }
+
+     Returns:
+         dict: A dictionary containing:
+             - "absolute_values": {
+                   "correctly_identified": dict with counts per category,
+                   "missed": dict with counts per category,
+                   "total_objects_in_target": total ground truth objects per category
+               }
+             - "percentages": {
+                   "correctly_identified_percentage": percentage of correctly identified objects per category,
+                   "missed_percentage": percentage of missed objects per category
+               }
+
+     Notes:
+         - An object is considered "correctly identified" if any part of it overlaps with a predicted object.
+         - Both predicted and ground truth masks are internally labeled to identify individual objects.
+     """
     if size_categories is None:
         size_categories = {
-        "xxs": (0, 4),   
-        "xs": (4, 8),   
-        "s": (8, 12),
-        "m": (12, 20),
-        "l": (20, 50),  
-        "xl": (50, 999999)
-        }
+            "xxs": (0, 4),
+            "xs": (4, 8),
+            "s": (8, 12),
+            "m": (12, 20),
+            "l": (20, 50),
+            "xl": (50, 999999)
+            }
     
     # Ensure the inputs are numpy arrays
     mask_pred = mask_pred.cpu().numpy() if isinstance(mask_pred, torch.Tensor) else mask_pred
@@ -80,6 +114,43 @@ def calculate_object_identification(mask_pred, mask_true, size_categories=None):
 
 
 def calculate_batched_averages(preds, targets, size_categories=None):
+    """
+    Computes average object identification statistics over a batch of predicted and ground truth masks.
+    Each object is classified by size, and detection accuracy is averaged across the batch.
+
+    Parameters:
+        preds (numpy.ndarray or torch.Tensor): Batch of predicted binary masks with shape (B, H, W),
+            where B is the batch size.
+        targets (numpy.ndarray or torch.Tensor): Batch of ground truth binary masks with shape (B, H, W).
+        size_categories (dict, optional): Dictionary mapping category names to size ranges (in pixels).
+            If None, defaults to:
+                {
+                    "xxs": (0, 4),
+                    "xs":  (4, 8),
+                    "s":   (8, 12),
+                    "m":   (12, 20),
+                    "l":   (20, 50),
+                    "xl":  (50, 999999)
+                }
+
+    Returns:
+        dict: A dictionary containing:
+            - "average_absolute_values": {
+                  "avg_correctly_identified": dict of average counts per category,
+                  "avg_missed": dict of average missed counts per category,
+                  "avg_total_objects_in_target": dict of average total objects per category
+              }
+            - "average_percentages": {
+                  "avg_correctly_identified_percentage": dict of average correct detection rates per category (%),
+                  "avg_missed_percentage": dict of average miss rates per category (%)
+              }
+
+    Notes:
+        - Uses `calculate_object_identification` internally on each batch element.
+        - Averaging is done over the number of batch elements, not per-object.
+        - Percentages are based on total ground truth objects across the batch.
+    """
+
     #assert type(size_categories) in [dict,None], "Size categories must be a dictionary or None"
     
     if size_categories is None:

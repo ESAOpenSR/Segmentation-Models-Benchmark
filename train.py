@@ -114,7 +114,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 early_stop_callback = EarlyStopping(
     monitor=config.training.pl_settings.early_stop_metric,
     min_delta=0.00,
-    patience=2500,
+    patience=config.training.early_stopping_patience,
     verbose=True,
     mode="min",
     check_finite=True,

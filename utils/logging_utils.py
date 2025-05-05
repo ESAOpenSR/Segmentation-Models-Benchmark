@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import torch
 from PIL import Image
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import io
 
 def minmax_percentile(im,percentile=3):
@@ -98,9 +100,7 @@ def log_images(images, masks, preds, title="Training"):
 
     return pil_image
 
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+
 def plot_mask_with_threshold(mask, low_threshold=0.2, high_threshold=0.75):
     # Convert the mask to a NumPy array if needed
     mask = mask.numpy() if isinstance(mask, torch.Tensor) else np.array(mask)

@@ -70,3 +70,6 @@ build/
 # pycharm
 .idea
 .venv
+
+# personal files
+todo
