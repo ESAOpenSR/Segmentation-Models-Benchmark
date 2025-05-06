@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import rasterio
+import random
 import pytorch_lightning as pl
 import os
 from torch.utils.data import Dataset, DataLoader
@@ -67,7 +68,7 @@ class pl_datamodule(pl.LightningDataModule):
     def val_dataloader(self):
         # Optionally, create a validation DataLoader
         # Here we are using the same dataset for simplicity
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.no_workers, prefetch_factor=4)
 
     def test_dataloader(self):
         # Optionally, create a test DataLoader
@@ -139,6 +140,8 @@ class TIFDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
+        # tiel indexing
+
         image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.tif"
         mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.tif"
 
@@ -153,12 +156,56 @@ class TIFDataset(Dataset):
         # Convert mask to binary if needed (Assumes 0/1 classes)
         mask = (mask == self.mask_class).astype(np.float32)
 
+        # tiles_b = []
+        # tiles_nb = []
+        # tile_coords = [(0, 0), (0, 256), (256, 0), (256, 256)]
+        #
+        # for top, left in tile_coords:
+        #     img_tile = img[:, top:top + 256, left:left + 256]
+        #     mask_tile = mask[top:top + 256, left:left + 256]
+        #     perc_count = np.count_nonzero(mask_tile)
+        #
+        #     if perc_count > 0:
+        #         tiles_b.append((img_tile, mask_tile))
+        #     else:
+        #         tiles_nb.append((img_tile, mask_tile))
+        #
+        # if self.phase == 'train':
+        #     if len(tiles_b) > 0:
+        #         img, mask = random.choice(tiles_b)
+        #     else:
+        #         img, mask = random.choice(tiles_nb)
+        # else:
+        #     if len(tiles_b) > 0:
+        #         img, mask = tiles_b[0]
+        #     else:
+        #         img, mask = tiles_nb[0]
+
         # Apply augmentations
+
+        tile_coords = [(0, 0), (0, 256), (256, 0), (256, 256)]
+
+        # Dictionary to store all tiles with their perc_count
+        tiles_dict = {}
+
+        for top, left in tile_coords:
+            img_tile = img[:, top:top + 256, left:left + 256]
+            mask_tile = mask[top:top + 256, left:left + 256]
+            perc_count = np.count_nonzero(mask_tile)
+
+            # Store tiles in dictionary with their perc_count as value
+            tiles_dict[(top, left)] = (img_tile, mask_tile, perc_count)
+
+
+        # Select the tile with the highest perc_count
+        (top, left), (img, mask, _) = max(tiles_dict.items(), key=lambda x: x[1][2])
+
         if self.transform:
             transformed = self.transform(image=img.transpose(1, 2, 0), mask=mask)
-            img, mask = transformed["image"], transformed["mask"]
+            img_trafo = transformed["image"]
+            mask_trafo = transformed["mask"]
         else:
             raise 'No transform selected: apply at least a normalization'
 
-        return img, mask.unsqueeze(0)  # Add channel dimension to mask
+        return img_trafo, mask_trafo.unsqueeze(0)  # Add channel dimension to mask
 

@@ -69,7 +69,7 @@ class model_pl(pl.LightningModule):
             import segmentation_models_pytorch as smp
 
             model = smp.Unet(
-                encoder_name="resnet34",  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
                 classes=1,
@@ -78,7 +78,7 @@ class model_pl(pl.LightningModule):
             import segmentation_models_pytorch as smp
 
             model = smp.DeepLabV3Plus(
-                encoder_name="resnet34",
+                encoder_name=config.model.encoder,
                 encoder_depth=5,
                 encoder_weights=None,
                 encoder_output_stride=8,  # changed from 16 to 8 for sharper borders
@@ -199,8 +199,10 @@ class model_pl(pl.LightningModule):
                     loss_px_dict,
                     prog_bar=False,
                     logger=True,
-                    on_step=True,
-                    on_epoch=False,
+                    # on_step=True,
+                    # on_epoch=False,
+                    on_step=False,
+                    on_epoch=True,
                     sync_dist=True,
                 )
             if status_obj:  # log only if valid metrics are returned
@@ -208,8 +210,10 @@ class model_pl(pl.LightningModule):
                     loss_obj_dict,
                     prog_bar=False,
                     logger=True,
-                    on_step=True,
-                    on_epoch=False,
+                    # on_step=True,
+                    # on_epoch=False,
+                    on_step=False,
+                    on_epoch=True,
                     sync_dist=True,
                 )
             if batch_idx < 5:  # log only first 5 val batches
@@ -229,8 +233,10 @@ class model_pl(pl.LightningModule):
                     building_id_dict,
                     prog_bar=False,
                     logger=True,
-                    on_step=True,
-                    on_epoch=False,
+                    # on_step=True,
+                    # on_epoch=False,
+                    on_step=False,
+                    on_epoch=True,
                     sync_dist=True,
                 )
         return val_loss

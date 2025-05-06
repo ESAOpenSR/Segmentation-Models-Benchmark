@@ -8,6 +8,7 @@ training:
   wandb_project_name: 'sr_validation'     # Name of the Weights & Biases project
   optim: 'adam'  
   loss: 'BCEWithLogitsLoss'     # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
+  loss_req_sig: False
   learning_rate: 2e-4            # Learning rate for the optimizer
   weight_decay: 1e-8            # Weight decay (L2 regularization)
   momentum: 0.999               # Momentum for optimizer (e.g., RMSprop or SGD)
@@ -21,19 +22,20 @@ training:
     checkpoint_saving_metric: "train_loss"
     early_stop_metric: "train_loss"
     accelerator: 'cuda'
-    devices:  [0]
+    devices: [0]
     strategy: "ddp"
-    check_val_every_n_epoch: 5 # has to be int
+    check_val_every_n_epoch: 3 # has to be int
     log_every_n_steps: 100
     #val_check_interval: 10 # float for percentage 0.25
     max_epochs: 100000
-    limit_val_batches: 5
+    limit_val_batches: 1000
     continue_training: False #"logs/building_comparison/2024-10-10_22-35-39/last.ckpt"
     load_weights_only: False #"logs/building_comparison_DL/2024-11-06_12-23-45/last.ckpt" # false, or ckpt path
 
 data:
   dataset_type: "RS"            # ["fake", "RS"]
   bands: 4                      # Number of bands in the input image
+  use_cropped_image: True
   interpolation_size: 512       # Size of the interpolated image
   interpolation_type: 'bicubic' # Type of interpolation to use
   crop: True                    # Crop the image to the wanted size

@@ -1,18 +1,18 @@
 model:
-  model_type: "DeepLabV3Plus"            # Model type (e.g., unet, deeplabv3)
+  model_type: "unet_pp"            # Model type (e.g., unet, deeplabv3)
   n_channels: 4                 # Number of input channels (e.g., RGB image has 3 channels)
   n_classes: 1                  # Number of output classes for the segmentation task
   conf_threshold: 0.75           # Confidence threshold for the segmentation task
 
 training:
-  wandb_project_name: 'sr_validation'     # Name of the Weights & Biases project
-  optim: 'adam'  
-  loss: 'BCEWithLogitsLoss'     # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
-  loss_req_sig: False
+  wandb_project_name: 'Samuel_building_segmentation'     # Name of the Weights & Biases project
+  optim: 'adam'
+  loss: 'FocalLoss'     # Loss function to use (e.g., BCEWithLogitsLoss, CrossEntropyLoss)
+  loss_req_sig: True
   learning_rate: 2e-4            # Learning rate for the optimizer
   weight_decay: 1e-8            # Weight decay (L2 regularization)
   momentum: 0.999               # Momentum for optimizer (e.g., RMSprop or SGD)
-  amp: False                    # Automatic Mixed Precision (True/False)
+  amp: false                    # Automatic Mixed Precision (True/False)
   reduce_lr_metric: 'train_loss'  # Metric to use for learning rate reduction
   reduce_lr_patience: 15         # Number of epochs to wait before reducing learning rate
   reduce_lr_factor: 0.75         # Factor to reduce learning rate by
@@ -22,7 +22,7 @@ training:
     checkpoint_saving_metric: "train_loss"
     early_stop_metric: "train_loss"
     accelerator: 'cuda'
-    devices: [0]
+    devices:  [0]
     strategy: "ddp"
     check_val_every_n_epoch: 1 # has to be int
     log_every_n_steps: 100
@@ -39,10 +39,10 @@ data:
   interpolation_size: 512       # Size of the interpolated image
   interpolation_type: 'bicubic' # Type of interpolation to use
   crop: True                    # Crop the image to the wanted size
-  data_type: 'hr'               # Type of data to use (e.g., lr,sr,hr)
+  data_type: 'sr'               # Type of data to use (e.g., lr,sr,hr)
   no_workers: 127 #16                # Number of workers for the DataLoader
   batch_size: 32                # Batch size for the DataLoader
   data_path: '/data/USERS/shollend/metadata/stratification_tables/'
-  input_path: '/data/USERS/shollend/combined_download/output/hr_orthofoto/'
+  input_path: '/data/USERS/shollend/sentinel2/sr_inference/bilinear/'
   target_path: '/data/USERS/shollend/combined_download/output/hr_mask/'
 

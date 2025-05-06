@@ -13,8 +13,14 @@ from datetime import datetime
 import os, sys, wandb
 
 # Load the model --------------------------------------------------------------
-default_config_path = "configs/samuel_configs/deeplab/config_diffusion.yaml"  # set default path to config file
+default_config_path = "configs/samuel_configs/unet_pp/config_orthophoto.yaml"  # set default path to config file
 default_config_path = "configs/samuel_configs/deeplab/config_orthophoto.yaml"  # set default path to config file
+
+default_config_path = "configs/samuel_configs/unet_pp/config_diffusion.yaml"  # set default path to config file
+# default_config_path = "configs/samuel_configs/deeplab/config_diffusion.yaml"  # set default path to config file
+#
+default_config_path = "configs/samuel_configs/unet_pp/config_bilinear.yaml"  # set default path to config file
+# default_config_path = "configs/samuel_configs/deeplab/config_bilinear.yaml"  # set default path to config file
 
 
 # Check if a config path is provided as a command-line argument
@@ -74,7 +80,10 @@ tb_logger = pl_loggers.TensorBoardLogger(save_dir="logs/")
 
 # Logging - WandB
 from pytorch_lightning.loggers import WandbLogger
-wandb_logger = WandbLogger(entity="zerhigh-tu-wien", project="sr_validation",)
+# own
+#wandb_logger = WandbLogger(entity="zerhigh-tu-wien", project="sr_validation",)
+# isp
+wandb_logger = WandbLogger(entity="opensr", project="Samuel_building_segmentation",)
 
 # Saving Callbacks
 from pytorch_lightning.callbacks import ModelCheckpoint
