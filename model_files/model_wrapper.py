@@ -67,7 +67,6 @@ class model_pl(pl.LightningModule):
             )
         elif config.model.model_type == "unet_pp":
             import segmentation_models_pytorch as smp
-
             model = smp.Unet(
                 encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization

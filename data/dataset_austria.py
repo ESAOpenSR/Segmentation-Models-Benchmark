@@ -18,6 +18,7 @@ class pl_datamodule(pl.LightningDataModule):
         self.batch_size = self.config.data.batch_size
         self.no_workers = self.config.data.no_workers
         self.image_type = self.config.data.data_type
+        self.use_256_subsample = self.config.data.use_256_subsample
         bands = self.config.data.bands
 
         self.data_path = self.config.data.data_path
@@ -37,6 +38,7 @@ class pl_datamodule(pl.LightningDataModule):
             phase="train",
             image_type=self.image_type,
             bands=bands,
+            use_subsample=self.use_256_subsample
         )
         self.test_dataset = TIFDataset(
             data_table=test,
@@ -45,6 +47,7 @@ class pl_datamodule(pl.LightningDataModule):
             phase="test",
             image_type=self.image_type,
             bands=bands,
+            use_subsample=self.use_256_subsample
         )
         self.val_dataset = TIFDataset(
             data_table=val,
@@ -53,6 +56,7 @@ class pl_datamodule(pl.LightningDataModule):
             phase="val",
             image_type=self.image_type,
             bands=bands,
+            use_subsample=self.use_256_subsample
         )
 
     def train_dataloader(self):
@@ -63,17 +67,26 @@ class pl_datamodule(pl.LightningDataModule):
             shuffle=True,
             num_workers=self.no_workers,
             prefetch_factor=4,
+            persistent_workers=True,
         )
 
     def val_dataloader(self):
         # Optionally, create a validation DataLoader
         # Here we are using the same dataset for simplicity
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.no_workers, prefetch_factor=4)
+        return DataLoader(self.val_dataset,
+                          batch_size=self.batch_size,
+                          shuffle=False,
+                          num_workers=self.no_workers,
+                          prefetch_factor=4,
+                          persistent_workers=True,)
 
     def test_dataloader(self):
         # Optionally, create a test DataLoader
         # Here we are using the same dataset for simplicity
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
+        return DataLoader(self.test_dataset,
+                          batch_size=self.batch_size,
+                          shuffle=False,
+                          persistent_workers=True,)
 
 
 # read in panda file
@@ -94,7 +107,8 @@ class TIFDataset(Dataset):
         image_type="lr",
         mask_class=41,
         band_indices=None,
-        bands=4
+        bands=4,
+        use_subsample=True,
     ):
         # own, defintely needed
         assert Path(data_table).exists()
@@ -105,12 +119,13 @@ class TIFDataset(Dataset):
         self.image_type = image_type  # Either LR od HR
         self.mask_class = mask_class
         self.phase = phase
+        self.use_subsample = use_subsample
 
         # maybe, dont want to do 3band stuff
         self.bands = bands
 
         # assertion and validation
-        assert self.image_type in ["hr", "sr"]
+        assert self.image_type in ["hr", "sr", "sr_4band"]
         assert bands in [3, 4]
         # assert input_path in self.data.columns
         # assert target_path in self.data.columns
@@ -126,6 +141,10 @@ class TIFDataset(Dataset):
             elif self.image_type == 'sr':
                 # Select bands: Red (B4), Green (B3), Blue (B2), and NIR (B8)
                 self.band_indices = [4, 3, 2, 8]  # Rasterio uses 1-based indexing
+                self.id_prefix = 'S2'
+            elif self.image_type == 'sr_4band':
+                # Select bands: Red (B4), Green (B3), Blue (B2), and NIR (B8)
+                self.band_indices = [1, 2, 3, 4]  # Rasterio uses 1-based indexing
                 self.id_prefix = 'S2'
 
     def validate_data(self):
@@ -156,49 +175,24 @@ class TIFDataset(Dataset):
         # Convert mask to binary if needed (Assumes 0/1 classes)
         mask = (mask == self.mask_class).astype(np.float32)
 
-        # tiles_b = []
-        # tiles_nb = []
-        # tile_coords = [(0, 0), (0, 256), (256, 0), (256, 256)]
-        #
-        # for top, left in tile_coords:
-        #     img_tile = img[:, top:top + 256, left:left + 256]
-        #     mask_tile = mask[top:top + 256, left:left + 256]
-        #     perc_count = np.count_nonzero(mask_tile)
-        #
-        #     if perc_count > 0:
-        #         tiles_b.append((img_tile, mask_tile))
-        #     else:
-        #         tiles_nb.append((img_tile, mask_tile))
-        #
-        # if self.phase == 'train':
-        #     if len(tiles_b) > 0:
-        #         img, mask = random.choice(tiles_b)
-        #     else:
-        #         img, mask = random.choice(tiles_nb)
-        # else:
-        #     if len(tiles_b) > 0:
-        #         img, mask = tiles_b[0]
-        #     else:
-        #         img, mask = tiles_nb[0]
+        # use a 256 subsample with most building pixels
+        if self.use_subsample:
+            tile_coords = [(0, 0), (0, 256), (256, 0), (256, 256)]
 
-        # Apply augmentations
+            # Dictionary to store all tiles with their perc_count
+            tiles_dict = {}
 
-        tile_coords = [(0, 0), (0, 256), (256, 0), (256, 256)]
+            for top, left in tile_coords:
+                img_tile = img[:, top:top + 256, left:left + 256]
+                mask_tile = mask[top:top + 256, left:left + 256]
+                perc_count = np.count_nonzero(mask_tile)
 
-        # Dictionary to store all tiles with their perc_count
-        tiles_dict = {}
-
-        for top, left in tile_coords:
-            img_tile = img[:, top:top + 256, left:left + 256]
-            mask_tile = mask[top:top + 256, left:left + 256]
-            perc_count = np.count_nonzero(mask_tile)
-
-            # Store tiles in dictionary with their perc_count as value
-            tiles_dict[(top, left)] = (img_tile, mask_tile, perc_count)
+                # Store tiles in dictionary with their perc_count as value
+                tiles_dict[(top, left)] = (img_tile, mask_tile, perc_count)
 
 
-        # Select the tile with the highest perc_count
-        (top, left), (img, mask, _) = max(tiles_dict.items(), key=lambda x: x[1][2])
+            # Select the tile with the highest perc_count
+            (top, left), (img, mask, _) = max(tiles_dict.items(), key=lambda x: x[1][2])
 
         if self.transform:
             transformed = self.transform(image=img.transpose(1, 2, 0), mask=mask)
