@@ -17,7 +17,7 @@ training:
   reduce_lr_metric: 'val_loss'  # Metric to use for learning rate reduction
   reduce_lr_patience: 15         # Number of epochs to wait before reducing learning rate
   reduce_lr_factor: 0.75         # Factor to reduce learning rate by
-  early_stopping_patience: 20
+  early_stopping_patience: 30
 
   pl_settings:
     checkpoint_saving_metric: "val_loss"
@@ -38,6 +38,7 @@ data:
   bands: 4                      # Number of bands in the input image
   use_cropped_image: True
   use_256_subsample: True
+  resample_512: True
   interpolation_size: 512       # Size of the interpolated image
   interpolation_type: 'bicubic' # Type of interpolation to use
   crop: True                    # Crop the image to the wanted size
@@ -47,4 +48,5 @@ data:
   data_path: '/data/USERS/shollend/metadata/stratification_tables/'
   input_path: '/data/USERS/shollend/sentinel2/sr_inference/bilinear/'
   target_path: '/data/USERS/shollend/combined_download/output/hr_mask/'
+  img_post: 'tif'
 

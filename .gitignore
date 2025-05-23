@@ -73,3 +73,6 @@ build/
 
 # personal files
 todo
+logs
+results
+wandb

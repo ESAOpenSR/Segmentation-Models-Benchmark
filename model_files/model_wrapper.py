@@ -51,8 +51,8 @@ class model_pl(pl.LightningModule):
             self.criterion = RQLoss()
         elif loss_command == "FocalLoss":
             from utils.losses import FocalTverskyLoss
-
-            self.criterion = FocalTverskyLoss().forward
+            ftl = FocalTverskyLoss(alpha=0.3, beta=0.7, gamma=0.75)
+            self.criterion = ftl.forward
         else:
             raise ValueError("Invalid Loss Function")
 
@@ -68,6 +68,30 @@ class model_pl(pl.LightningModule):
         elif config.model.model_type == "unet_pp":
             import segmentation_models_pytorch as smp
             model = smp.Unet(
+                encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
+                classes=1,
+            )  # model output channels (number of classes in your dataset)
+        elif config.model.model_type == "segformer":
+            import segmentation_models_pytorch as smp
+            model = smp.Segformer(
+                encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
+                classes=1,
+            )  # model output channels (number of classes in your dataset)
+        elif config.model.model_type == "manet":
+            import segmentation_models_pytorch as smp
+            model = smp.MAnet(
+                encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
+                classes=1,
+            )  # model output channels (number of classes in your dataset)
+        elif config.model.model_type == "pan":
+            import segmentation_models_pytorch as smp
+            model = smp.PAN(
                 encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 import random
+import torch
 import pytorch_lightning as pl
 import os
 from torch.utils.data import Dataset, DataLoader
@@ -20,6 +21,8 @@ class pl_datamodule(pl.LightningDataModule):
         self.image_type = self.config.data.data_type
         self.use_256_subsample = self.config.data.use_256_subsample
         bands = self.config.data.bands
+        img_postfix = self.config.data.img_post
+        resample_512 = self.config.data.resample_512
 
         self.data_path = self.config.data.data_path
         self.input_path = self.config.data.input_path
@@ -38,7 +41,9 @@ class pl_datamodule(pl.LightningDataModule):
             phase="train",
             image_type=self.image_type,
             bands=bands,
-            use_subsample=self.use_256_subsample
+            use_subsample=self.use_256_subsample,
+            img_postfix=img_postfix,
+            resample_512=resample_512,
         )
         self.test_dataset = TIFDataset(
             data_table=test,
@@ -47,7 +52,9 @@ class pl_datamodule(pl.LightningDataModule):
             phase="test",
             image_type=self.image_type,
             bands=bands,
-            use_subsample=self.use_256_subsample
+            use_subsample=self.use_256_subsample,
+            img_postfix=img_postfix,
+            resample_512=resample_512,
         )
         self.val_dataset = TIFDataset(
             data_table=val,
@@ -56,7 +63,9 @@ class pl_datamodule(pl.LightningDataModule):
             phase="val",
             image_type=self.image_type,
             bands=bands,
-            use_subsample=self.use_256_subsample
+            use_subsample=self.use_256_subsample,
+            img_postfix=img_postfix,
+            resample_512=resample_512,
         )
 
     def train_dataloader(self):
@@ -86,17 +95,13 @@ class pl_datamodule(pl.LightningDataModule):
         return DataLoader(self.test_dataset,
                           batch_size=self.batch_size,
                           shuffle=False,
+                          num_workers=self.no_workers,
+                          prefetch_factor=4,
                           persistent_workers=True,)
 
 
 # read in panda file
 class TIFDataset(Dataset):
-    # def __init__(self, df, input_path, target_path, mask_class=41,
-    #              transform=A.Compose([A.Normalize(mean=0, std=1), ToTensorV2()])):
-    #     self.image_paths = df[input_path].values  # Get image paths from DataFrame
-    #     self.mask_paths = df[target_path].values  # Get mask paths from DataFrame
-    #     self.transform = transform
-    #     self.mask_class = mask_class
     def __init__(
         self,
         data_table: str | Path = "",
@@ -109,6 +114,8 @@ class TIFDataset(Dataset):
         band_indices=None,
         bands=4,
         use_subsample=True,
+        img_postfix='tif',
+        resample_512=True,
     ):
         # own, defintely needed
         assert Path(data_table).exists()
@@ -120,9 +127,11 @@ class TIFDataset(Dataset):
         self.mask_class = mask_class
         self.phase = phase
         self.use_subsample = use_subsample
+        self.resample_512 = resample_512
 
         # maybe, dont want to do 3band stuff
         self.bands = bands
+        self.img_postfix = img_postfix
 
         # assertion and validation
         assert self.image_type in ["hr", "sr", "sr_4band"]
@@ -140,11 +149,11 @@ class TIFDataset(Dataset):
                 self.id_prefix = 'HR_ortho'
             elif self.image_type == 'sr':
                 # Select bands: Red (B4), Green (B3), Blue (B2), and NIR (B8)
-                self.band_indices = [4, 3, 2, 8]  # Rasterio uses 1-based indexing
+                self.band_indices = [4, 3, 2, 8]
                 self.id_prefix = 'S2'
             elif self.image_type == 'sr_4band':
                 # Select bands: Red (B4), Green (B3), Blue (B2), and NIR (B8)
-                self.band_indices = [1, 2, 3, 4]  # Rasterio uses 1-based indexing
+                self.band_indices = [1, 2, 3, 4]
                 self.id_prefix = 'S2'
 
     def validate_data(self):
@@ -155,14 +164,53 @@ class TIFDataset(Dataset):
             # other validation
         pass
 
+    def resample_mask_torch(self, arr: np.ndarray, scale_factor: float | int) -> np.ndarray:
+        """
+        Args:
+            arr: (channel x width x height) array will be resampled to (channel x scale_factor*width x scale_factor*height)
+            scale_factor: float, 0.25 for HR -> LR
+                                 4 for HR -> LR
+
+        Returns: ret_arr
+
+        """
+        # nearest neigbor interpolation for masks allows strict adherence to lr mask
+        if arr.ndim == 2:
+            arr = np.expand_dims(arr, axis=0)
+        ret_arr = torch.nn.functional.interpolate(
+            torch.from_numpy(arr).unsqueeze(0).float(),
+            scale_factor=scale_factor,
+            mode="nearest",
+            # antialias=True
+        ).squeeze().numpy()
+        return ret_arr.squeeze()
+
+    def resample_torch(self, arr: np.ndarray, scale_factor: float | int) -> np.ndarray:
+        """
+        Args:
+            arr: (channel x width x height) array will be resampled to (channel x scale_factor*width x scale_factor*height)
+            scale_factor: float, 0.25 for HR -> LR
+                                 4 for HR -> LR
+
+        Returns: ret_arr
+
+        """
+        ret_arr = torch.nn.functional.interpolate(
+            torch.from_numpy(arr).unsqueeze(0),
+            scale_factor=scale_factor,
+            mode="bilinear",
+            antialias=True
+        ).squeeze().numpy()
+        return ret_arr
+
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         # tiel indexing
 
-        image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.tif"
-        mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.tif"
+        image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.{self.img_postfix}"
+        mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.{self.img_postfix}"
 
         # Load image
         with rasterio.open(Path(self.input_path) / image_id) as src:
@@ -193,6 +241,12 @@ class TIFDataset(Dataset):
 
             # Select the tile with the highest perc_count
             (top, left), (img, mask, _) = max(tiles_dict.items(), key=lambda x: x[1][2])
+
+        if self.resample_512:
+            # resample from bilinear: (4, 256, 256) -> (4, 512, 512)
+            #               nearest: (256, 256) -> (512, 512)
+            img = self.resample_torch(img, scale_factor=2)
+            mask = self.resample_mask_torch(mask, scale_factor=2)
 
         if self.transform:
             transformed = self.transform(image=img.transpose(1, 2, 0), mask=mask)

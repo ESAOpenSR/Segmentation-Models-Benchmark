@@ -1,9 +1,9 @@
 model:
-  model_type: "unet_pp"            # Model type (e.g., unet, deeplabv3)
+  model_type: "manet"            # Model type (e.g., unet, deeplabv3)
   n_channels: 4                 # Number of input channels (e.g., RGB image has 3 channels)
   n_classes: 1                  # Number of output classes for the segmentation task
   conf_threshold: 0.75           # Confidence threshold for the segmentation task
-  encoder: "se_resnext50_32x4d"
+  encoder: "se_resnext50_32x4d"    # choose from https://smp.readthedocs.io/en/latest/encoders.html, only supported for smp models
 
 training:
   wandb_project_name: 'Samuel_building_segmentation'     # Name of the Weights & Biases project
@@ -23,7 +23,7 @@ training:
     checkpoint_saving_metric: "val_loss"
     early_stop_metric: "val_loss"
     accelerator: 'cuda'
-    devices:  [1]
+    devices: [0]
     strategy: "ddp"
     check_val_every_n_epoch: 1 # has to be int
     log_every_n_steps: 100
@@ -38,15 +38,13 @@ data:
   bands: 4                      # Number of bands in the input image
   use_cropped_image: True
   use_256_subsample: True
-  resample_512: True
   interpolation_size: 512       # Size of the interpolated image
   interpolation_type: 'bicubic' # Type of interpolation to use
   crop: True                    # Crop the image to the wanted size
-  data_type: 'sr_4band'               # Type of data to use (e.g., lr,sr,hr)
+  data_type: 'hr'               # Type of data to use (e.g., lr,sr,hr)
   no_workers: 31 #16                # Number of workers for the DataLoader
   batch_size: 32                # Batch size for the DataLoader
   data_path: '/data/USERS/shollend/metadata/stratification_tables/'
-  input_path: '/data/USERS/shollend/sentinel2/sr_inference/SEN2SRLite_RGBN/'
+  input_path: '/data/USERS/shollend/combined_download/output/hr_orthofoto/'
   target_path: '/data/USERS/shollend/combined_download/output/hr_mask/'
-  img_post: 'tif'
 

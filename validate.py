@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import torch
 torch.set_float32_matmul_precision("medium")
@@ -18,7 +18,7 @@ from opensr_usecases import Validator
 val_obj = Validator(device="cuda", debugging=True)
 
 # Set Config and CKPT base paths
-model_type = "fcn"
+model_type = "unet_pp"
 cfg_base_path = "configs/MODEL/config_TYPE.yaml"
 ckpt_base_path = "logs/MODEL_v1/TYPE_MODEL.ckpt"
 cfg_base_path = cfg_base_path.replace("MODEL", model_type)

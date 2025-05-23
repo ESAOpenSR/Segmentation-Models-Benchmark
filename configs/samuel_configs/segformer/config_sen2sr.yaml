@@ -38,7 +38,6 @@ data:
   bands: 4                      # Number of bands in the input image
   use_cropped_image: True
   use_256_subsample: True
-  resample_512: True
   interpolation_size: 512       # Size of the interpolated image
   interpolation_type: 'bicubic' # Type of interpolation to use
   crop: True                    # Crop the image to the wanted size
@@ -48,5 +47,4 @@ data:
   data_path: '/data/USERS/shollend/metadata/stratification_tables/'
   input_path: '/data/USERS/shollend/sentinel2/sr_inference/SEN2SRLite_RGBN/'
   target_path: '/data/USERS/shollend/combined_download/output/hr_mask/'
-  img_post: 'tif'
 
