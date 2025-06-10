@@ -26,7 +26,7 @@ default_config_path = "configs/samuel_configs/unet_pp/config_orthophoto.yaml"  #
 #default_config_path = "configs/samuel_configs/unet_pp/config_sen2sr.yaml"  # set default path to config file
 
 #default_config_path = "configs/samuel_configs/unet_pp/config_deepsent.yaml"
-#default_config_path = "configs/samuel_configs/unet_pp/config_diffusion_new_data.yaml"
+default_config_path = "configs/samuel_configs/unet_pp/config_bilinear_nninterpolation.yaml"
 
 # Check if a config path is provided as a command-line argument
 config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path  # get argument

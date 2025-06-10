@@ -21,8 +21,8 @@ class pl_datamodule(pl.LightningDataModule):
         self.image_type = self.config.data.data_type
         self.use_256_subsample = self.config.data.use_256_subsample
         bands = self.config.data.bands
-        img_postfix = self.config.data.img_post
-        resample_512 = self.config.data.resample_512
+        resample_512 = getattr(config.data, "resample_512", False) #self.config.data.resample_512
+        lr_interpolation = getattr(config.data, "lr_interpolation", False)
 
         self.data_path = self.config.data.data_path
         self.input_path = self.config.data.input_path
@@ -42,8 +42,8 @@ class pl_datamodule(pl.LightningDataModule):
             image_type=self.image_type,
             bands=bands,
             use_subsample=self.use_256_subsample,
-            img_postfix=img_postfix,
             resample_512=resample_512,
+            lr_interpolation=lr_interpolation,
         )
         self.test_dataset = TIFDataset(
             data_table=test,
@@ -53,8 +53,8 @@ class pl_datamodule(pl.LightningDataModule):
             image_type=self.image_type,
             bands=bands,
             use_subsample=self.use_256_subsample,
-            img_postfix=img_postfix,
             resample_512=resample_512,
+            lr_interpolation=lr_interpolation,
         )
         self.val_dataset = TIFDataset(
             data_table=val,
@@ -64,8 +64,8 @@ class pl_datamodule(pl.LightningDataModule):
             image_type=self.image_type,
             bands=bands,
             use_subsample=self.use_256_subsample,
-            img_postfix=img_postfix,
             resample_512=resample_512,
+            lr_interpolation=lr_interpolation,
         )
 
     def train_dataloader(self):
@@ -107,15 +107,15 @@ class TIFDataset(Dataset):
         data_table: str | Path = "",
         input_path='',
         target_path='',
-        transform=A.Compose([A.Normalize(mean=0, std=1), ToTensorV2()]),
+        transform=A.Compose([A.Normalize(mean=0, std=1), ToTensorV2()]), # removed A.Normalize(mean=0, std=1),
         phase="test",
         image_type="lr",
         mask_class=41,
         band_indices=None,
         bands=4,
         use_subsample=True,
-        img_postfix='tif',
         resample_512=True,
+        lr_interpolation=False,
     ):
         # own, defintely needed
         assert Path(data_table).exists()
@@ -128,10 +128,10 @@ class TIFDataset(Dataset):
         self.phase = phase
         self.use_subsample = use_subsample
         self.resample_512 = resample_512
+        self.lr_interpolation = lr_interpolation
 
         # maybe, dont want to do 3band stuff
         self.bands = bands
-        self.img_postfix = img_postfix
 
         # assertion and validation
         assert self.image_type in ["hr", "sr", "sr_4band"]
@@ -139,7 +139,6 @@ class TIFDataset(Dataset):
         # assert input_path in self.data.columns
         # assert target_path in self.data.columns
         #self.validate_data()
-
         # generated
         # allows adding of individual sr-indexing of channel bands
         if band_indices is None:
@@ -185,7 +184,7 @@ class TIFDataset(Dataset):
         ).squeeze().numpy()
         return ret_arr.squeeze()
 
-    def resample_torch(self, arr: np.ndarray, scale_factor: float | int) -> np.ndarray:
+    def resample_torch(self, arr: np.ndarray, scale_factor: float | int, mode: str='bilinear') -> np.ndarray:
         """
         Args:
             arr: (channel x width x height) array will be resampled to (channel x scale_factor*width x scale_factor*height)
@@ -198,7 +197,7 @@ class TIFDataset(Dataset):
         ret_arr = torch.nn.functional.interpolate(
             torch.from_numpy(arr).unsqueeze(0),
             scale_factor=scale_factor,
-            mode="bilinear",
+            mode=mode,
             antialias=True
         ).squeeze().numpy()
         return ret_arr
@@ -209,12 +208,17 @@ class TIFDataset(Dataset):
     def __getitem__(self, idx):
         # tiel indexing
 
-        image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.{self.img_postfix}"
-        mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.{self.img_postfix}"
+        image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.tif"
+        mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.tif"
 
+        img_profile = None
         # Load image
         with rasterio.open(Path(self.input_path) / image_id) as src:
             img = src.read(self.band_indices).astype(np.float32)
+            img_profile = src.profile
+
+        if self.lr_interpolation:
+            img = self.resample_torch(img, scale_factor=2, mode='nearest')
 
         # Load mask
         with rasterio.open(Path(self.target_path) / mask_id) as src:
@@ -222,6 +226,7 @@ class TIFDataset(Dataset):
 
         # Convert mask to binary if needed (Assumes 0/1 classes)
         mask = (mask == self.mask_class).astype(np.float32)
+
 
         # use a 256 subsample with most building pixels
         if self.use_subsample:
