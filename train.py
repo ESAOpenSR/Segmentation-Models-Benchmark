@@ -53,17 +53,18 @@ else:
     sys.exit(1)
 data_module = pl_datamodule(config)
 
-for i in range(15):
-    img, mask = data_module.train_dataset.validate(idx=i)
-    print(img.shape, mask.shape)
-
-    fig, ax = plt.subplots(1, 2)
-    ax[0].imshow(np.transpose(img, (1, 2, 0)))
-    ax[1].imshow(mask, cmap='gray')     # grayscale display
-    fig.savefig(f"samples/patch_and_mask_{i}.png", dpi=150)   # always works
-    plt.show()
-
 if False:
+    for i in range(15):
+        img, mask = data_module.train_dataset.validate(idx=i)
+        print(img.shape, mask.shape)
+        print(np.min(img), np.max(img), np.min(mask), np.max(mask))
+
+        fig, ax = plt.subplots(1, 2)
+        ax[0].imshow(np.transpose(img[:3, :, :], (1, 2, 0)))
+        ax[1].imshow(mask, cmap='gray')     # grayscale display
+        fig.savefig(f"samples/patch_and_mask_{i}.png", dpi=150)   # always works
+
+if True:
     # Define Callbacks and Loggers ------------------------------------------------
     project_name = config.training.wandb_project_name
 

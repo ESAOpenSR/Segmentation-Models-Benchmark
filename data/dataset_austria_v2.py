@@ -246,7 +246,7 @@ class TIFDataset(Dataset):
         # apply transform manually here - only scaling to 0-1
         img_trafo = self.transform(img)
 
-        return img_trafo[:3, :, :], mask
+        return img_trafo, mask
 
     def resample_mask_torch(self, arr: np.ndarray, scale_factor: float | int) -> np.ndarray:
         """
@@ -304,7 +304,7 @@ class TIFDataset(Dataset):
             if img_profile['dtype'] == 'float32':
                 img = img
             elif img_profile['dtype'] == 'uint16':
-                img = img / 10000
+                img = img / 65535.0 #10_000 #10000
             elif img_profile['dtype'] == 'uint8':
                 img = img / 256
 
@@ -343,8 +343,9 @@ class TIFDataset(Dataset):
             mask = self.resample_mask_torch(mask, scale_factor=2)
 
         # apply transform manually here - only scaling to 0-1
-        img_trafo = torch.from_numpy(self.transform(img))
-        mask_trafo = torch.from_numpy(mask).unsqueeze(0)
+        #img_trafo = torch.from_numpy(self.transform(img))
+        img_trafo = torch.from_numpy(img)
+        mask_trafo = torch.from_numpy(mask).float().unsqueeze(0)
 
         return img_trafo, mask_trafo
 

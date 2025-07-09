@@ -133,7 +133,7 @@ import torch.nn as nn
 
 
 class FocalTverskyLoss(nn.Module):
-    def __init__(self, alpha=0.3, beta=0.7, gamma=0.75, smooth=1e-6):
+    def __init__(self, alpha=0.7, beta=0.3, gamma=0.75, smooth=1e-6):
         """
         Initialize the Focal Tversky Loss.
 
@@ -169,10 +169,6 @@ class FocalTverskyLoss(nn.Module):
         # Flatten tensors to compute the Tversky index
         y_pred_flat = y_pred.view(-1)
         y_true_flat = y_true.view(-1)
-
-        # changing to allow new reshaping
-        # y_pred_flat = y_pred.contiguous().view(y_pred.size(0), -1)
-        # y_true_flat = y_true.contiguous().view(y_true.size(0), -1)
 
         # Compute true positives, false positives, and false negatives
         true_positive = torch.sum(y_pred_flat * y_true_flat)

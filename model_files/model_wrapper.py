@@ -76,9 +76,15 @@ class model_pl(pl.LightningModule):
                 decoder_use_norm=config.model.decoder_use_norm,
                 decoder_attention_type=config.model.decoder_attention_type,
                 decoder_interpolation=config.model.decoder_interpolation,
-                in_channels=4,
-                classes=1,
+                in_channels=config.model.n_channels,
+                classes=config.model.n_classes,
                 activation=None
+            )
+
+        elif config.model.model_type == "unet_old":
+            from model_files.unet_model import UNet
+            model = UNet(
+                n_channels=config.model.n_channels, n_classes=config.model.n_classes
             )
 
         elif config.model.model_type == "unet_pp":
@@ -156,7 +162,8 @@ class model_pl(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         # Use AMP (Automatic Mixed Precision) during forward pass
-        with torch.amp.autocast('cuda', enabled=self.amp):
+        #with torch.amp.autocast('cuda', enabled=self.amp):
+        with torch.cuda.amp.autocast(enabled=self.amp):
             y_hat = self.forward(x)
 
             # Assuming binary segmentation (1 channel output)
