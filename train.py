@@ -13,20 +13,20 @@ from datetime import datetime
 import os, sys, wandb
 
 # Load the model --------------------------------------------------------------
-default_config_path = "configs/samuel_configs/unet_pp/config_orthophoto.yaml"  # set default path to config file
+#default_config_path = "configs/samuel_configs/unet_pp/config_orthophoto.yaml"  # set default path to config file
 #default_config_path = "configs/samuel_configs/unet_pp/config_orthophoto_full512.yaml"  # set default path to config file
 #default_config_path = "configs/samuel_configs/deeplab/config_orthophoto.yaml"  # set default path to config file
 
 #default_config_path = "configs/samuel_configs/unet_pp/config_diffusion.yaml"  # set default path to config file
-# default_config_path = "configs/samuel_configs/deeplab/config_diffusion.yaml"  # set default path to config file
+#default_config_path = "configs/samuel_configs/deeplabv3p/config_diffusion_new_data.yaml"  # set default path to config file
 
-#default_config_path = "configs/samuel_configs/unet_pp/config_bilinear.yaml"  # set default path to config file
+default_config_path = "configs/samuel_configs/unet_pp/config_diffusion_new_data.yaml"  # set default path to config file
 # default_config_path = "configs/samuel_configs/deeplab/config_bilinear.yaml"  # set default path to config file
 
 #default_config_path = "configs/samuel_configs/unet_pp/config_sen2sr.yaml"  # set default path to config file
 
 #default_config_path = "configs/samuel_configs/unet_pp/config_deepsent.yaml"
-default_config_path = "configs/samuel_configs/unet_pp/config_bilinear_nninterpolation.yaml"
+#default_config_path = "configs/samuel_configs/unet_pp/config_bilinear_nninterpolation.yaml"
 
 # Check if a config path is provided as a command-line argument
 config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path  # get argument
@@ -62,7 +62,8 @@ if config.data.dataset_type == "fake":
     from data.fake_dataset import pl_datamodule
 elif config.data.dataset_type == "RS":
     #from data.dataset_masks import pl_datamodule
-    from data.dataset_austria import pl_datamodule
+    from data.dataset_austria_v2 import pl_datamodule
+    #from data.dataset_austria_v3_major_changes import pl_datamodule
 else:
     print("Invalid Dataset Type: ", config.data.dataset_type)
     sys.exit(1)

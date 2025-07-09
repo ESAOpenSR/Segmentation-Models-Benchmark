@@ -170,6 +170,10 @@ class FocalTverskyLoss(nn.Module):
         y_pred_flat = y_pred.view(-1)
         y_true_flat = y_true.view(-1)
 
+        # changing to allow new reshaping
+        # y_pred_flat = y_pred.contiguous().view(y_pred.size(0), -1)
+        # y_true_flat = y_true.contiguous().view(y_true.size(0), -1)
+
         # Compute true positives, false positives, and false negatives
         true_positive = torch.sum(y_pred_flat * y_true_flat)
         false_positive = torch.sum(y_pred_flat * (1 - y_true_flat))

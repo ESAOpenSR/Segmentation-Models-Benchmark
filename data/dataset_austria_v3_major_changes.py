@@ -21,7 +21,7 @@ class pl_datamodule(pl.LightningDataModule):
         self.image_type = self.config.data.data_type
         self.use_256_subsample = self.config.data.use_256_subsample
         bands = self.config.data.bands
-        resample_512 = getattr(config.data, "resample_512", False) #self.config.data.resample_512
+        resample_512 = getattr(config.data, "resample_512", False)
         lr_interpolation = getattr(config.data, "lr_interpolation", False)
 
         self.data_path = self.config.data.data_path
@@ -262,8 +262,6 @@ class TIFDataset(Dataset):
         # Convert mask to binary if needed (Assumes 0/1 classes)
         mask = (mask == self.mask_class).astype(np.float32)
 
-        #print(img.shape, mask.shape)
-
         # use a 256 subsample with most building pixels
         if self.use_subsample:
             tile_coords = [(0, 0), (0, 256), (256, 0), (256, 256)]
@@ -288,19 +286,21 @@ class TIFDataset(Dataset):
             img = self.resample_torch(img, scale_factor=2)
             mask = self.resample_mask_torch(mask, scale_factor=2)
 
+
+        # apply transform manually here - only scaling to 0-1
+        img_trafo = torch.from_numpy(img) / 65535.0
+        mask_trafo = torch.from_numpy(mask).unsqueeze(0)
+
+
         # if self.transform:
         #     transformed = self.transform(image=img.transpose(1, 2, 0), mask=mask)
         #     img_trafo = transformed["image"]
         #     mask_trafo = transformed["mask"]
-        if self.transform:
-            img_trafo = self.transform(img)  # returns torch.Tensor C x H x W scaled [0, 1]
-            mask_trafo = torch.from_numpy(mask).float()
+        # if self.transform:
+        #     img_trafo = self.transform(img)  # returns torch.Tensor C x H x W scaled [0, 1]
+        #     mask_trafo = torch.from_numpy(mask).float()
 
             # print(img_trafo.shape, mask_trafo.shape)
 
-
-        else:
-            raise 'No transform selected: apply at least a normalization'
-
-        return img_trafo, mask_trafo.unsqueeze(0)  # Add channel dimension to mask
+        return img_trafo, mask_trafo  # Add channel dimension to mask
 

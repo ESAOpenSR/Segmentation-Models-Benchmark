@@ -10,10 +10,10 @@ from omegaconf import OmegaConf, DictConfig
 from utils.metrics_utils import calculate_metrics, calculate_object_metrics
 from utils.logging_utils import log_images
 from model_files.model_losses import dice_loss
-from utils.building_id_percentage import (
-    calculate_object_identification,
-    calculate_batched_averages,
-)
+# from utils.building_id_percentage import (
+#     calculate_object_identification,
+#     calculate_batched_averages,
+# )
 
 
 class model_pl(pl.LightningModule):
@@ -61,13 +61,20 @@ class model_pl(pl.LightningModule):
         # Load model parameters from config
         if config.model.model_type == "unet":
             from model_files.unet_model import UNet
-
             model = UNet(
                 n_channels=config.model.n_channels, n_classes=config.model.n_classes
             )
         elif config.model.model_type == "unet_pp":
             import segmentation_models_pytorch as smp
             model = smp.Unet(
+                encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
+                classes=1,
+            )  # model output channels (number of classes in your dataset)
+        elif config.model.model_type == "unet_pp_real":
+            import segmentation_models_pytorch as smp
+            model = smp.UnetPlusPlus(
                 encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
@@ -160,9 +167,9 @@ class model_pl(pl.LightningModule):
                 loss_px_dict, status_px = calculate_metrics(
                     y, y_hat_thresh, phase="train"
                 )
-                loss_obj_dict, status_obj = calculate_object_metrics(
-                    y, y_hat_thresh, phase="train"
-                )
+                # loss_obj_dict, status_obj = calculate_object_metrics(
+                #     y, y_hat_thresh, phase="train"
+                # )
                 if status_px:
                     self.log_dict(
                         loss_px_dict,
@@ -172,29 +179,29 @@ class model_pl(pl.LightningModule):
                         on_epoch=False,
                         sync_dist=True,
                     )
-                if status_obj:
-                    self.log_dict(
-                        loss_obj_dict,
-                        prog_bar=False,
-                        logger=True,
-                        on_step=True,
-                        on_epoch=False,
-                        sync_dist=True,
-                    )
+                # if status_obj:
+                #     self.log_dict(
+                #         loss_obj_dict,
+                #         prog_bar=False,
+                #         logger=True,
+                #         on_step=True,
+                #         on_epoch=False,
+                #         sync_dist=True,
+                #     )
             if batch_idx % 50 == 0:
                 # get building id metrics
                 y_hat_clone = y_hat.clone().detach()
-                building_id_dict = self.get_building_id_metrics(
-                    y_hat_clone, y, phase="train"
-                )
-                self.log_dict(
-                    building_id_dict,
-                    prog_bar=False,
-                    logger=True,
-                    on_step=True,
-                    on_epoch=False,
-                    sync_dist=True,
-                )
+                # building_id_dict = self.get_building_id_metrics(
+                #     y_hat_clone, y, phase="train"
+                # )
+                # self.log_dict(
+                #     building_id_dict,
+                #     prog_bar=False,
+                #     logger=True,
+                #     on_step=True,
+                #     on_epoch=False,
+                #     sync_dist=True,
+                # )
         return loss
 
     @torch.no_grad()
@@ -214,9 +221,9 @@ class model_pl(pl.LightningModule):
         # Metrics
         if self.is_trainer_attached():
             loss_px_dict, status_px = calculate_metrics(y, y_hat_thresh, phase="val")
-            loss_obj_dict, status_obj = calculate_object_metrics(
-                y, y_hat_thresh, phase="val"
-            )
+            # loss_obj_dict, status_obj = calculate_object_metrics(
+            #     y, y_hat_thresh, phase="val"
+            # )
             if status_px:  # log only if valid metrics are returned
                 self.log_dict(
                     loss_px_dict,
@@ -228,17 +235,17 @@ class model_pl(pl.LightningModule):
                     on_epoch=True,
                     sync_dist=True,
                 )
-            if status_obj:  # log only if valid metrics are returned
-                self.log_dict(
-                    loss_obj_dict,
-                    prog_bar=False,
-                    logger=True,
-                    # on_step=True,
-                    # on_epoch=False,
-                    on_step=False,
-                    on_epoch=True,
-                    sync_dist=True,
-                )
+            # if status_obj:  # log only if valid metrics are returned
+            #     self.log_dict(
+            #         loss_obj_dict,
+            #         prog_bar=False,
+            #         logger=True,
+            #         # on_step=True,
+            #         # on_epoch=False,
+            #         on_step=False,
+            #         on_epoch=True,
+            #         sync_dist=True,
+            #     )
             if batch_idx < 5:  # log only first 5 val batches
                 val_image = log_images(x, y, y_hat, title="Training")
                 self.logger.experiment.log(
@@ -248,41 +255,41 @@ class model_pl(pl.LightningModule):
                 # get building id metrics
                 # y_hat_thres = (y_hat>self.conf_threshold)*1
                 y_hat_clone = y_hat.clone().detach()
-                building_id_dict = self.get_building_id_metrics(
-                    y_hat_clone, y, phase="val"
-                )
-
-                self.log_dict(
-                    building_id_dict,
-                    prog_bar=False,
-                    logger=True,
-                    # on_step=True,
-                    # on_epoch=False,
-                    on_step=False,
-                    on_epoch=True,
-                    sync_dist=True,
-                )
+                # building_id_dict = self.get_building_id_metrics(
+                #     y_hat_clone, y, phase="val"
+                # )
+                #
+                # self.log_dict(
+                #     building_id_dict,
+                #     prog_bar=False,
+                #     logger=True,
+                #     # on_step=True,
+                #     # on_epoch=False,
+                #     on_step=False,
+                #     on_epoch=True,
+                #     sync_dist=True,
+                # )
         return val_loss
 
-    def get_building_id_metrics(self, mask_pred, mask_true, phase="train"):
-        if mask_pred.dim() == 4:
-            mask_pred = mask_pred.squeeze(1)
-        if mask_true.dim() == 4:
-            mask_true = mask_true.squeeze(1)
-        res_dict = calculate_batched_averages(mask_pred, mask_true)
-        res_dict = res_dict["average_percentages"]
-        # rename keys by appending "test"
-        p_n = phase + "_BuildID"
-
-        # fix samuel: dict of dicts not loggable
-        #res_dict = {f"{p_n}/{k}": v for k, v in res_dict.items()}
-        res_dicts = {f"{p_n}/{k}": v for k, v in res_dict.items()}
-        flattened_res_dict = {
-            f"{outer_key}/{inner_key}": value
-            for outer_key, inner_dict in res_dicts.items()
-            for inner_key, value in inner_dict.items()
-        }
-        return flattened_res_dict
+    # def get_building_id_metrics(self, mask_pred, mask_true, phase="train"):
+    #     if mask_pred.dim() == 4:
+    #         mask_pred = mask_pred.squeeze(1)
+    #     if mask_true.dim() == 4:
+    #         mask_true = mask_true.squeeze(1)
+    #     res_dict = calculate_batched_averages(mask_pred, mask_true)
+    #     res_dict = res_dict["average_percentages"]
+    #     # rename keys by appending "test"
+    #     p_n = phase + "_BuildID"
+    #
+    #     # fix samuel: dict of dicts not loggable
+    #     #res_dict = {f"{p_n}/{k}": v for k, v in res_dict.items()}
+    #     res_dicts = {f"{p_n}/{k}": v for k, v in res_dict.items()}
+    #     flattened_res_dict = {
+    #         f"{outer_key}/{inner_key}": value
+    #         for outer_key, inner_dict in res_dicts.items()
+    #         for inner_key, value in inner_dict.items()
+    #     }
+    #     return flattened_res_dict
 
     def is_trainer_attached(self):
         try:
