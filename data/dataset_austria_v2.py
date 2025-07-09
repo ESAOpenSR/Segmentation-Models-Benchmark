@@ -7,7 +7,6 @@ import pytorch_lightning as pl
 import os
 from torch.utils.data import Dataset, DataLoader
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
 import pathlib
 from pathlib import Path
 
@@ -20,13 +19,15 @@ class pl_datamodule(pl.LightningDataModule):
         self.no_workers = self.config.data.no_workers
         self.image_type = self.config.data.data_type
         self.use_256_subsample = self.config.data.use_256_subsample
-        bands = self.config.data.bands
-        resample_512 = getattr(config.data, "resample_512", False)
-        lr_interpolation = getattr(config.data, "lr_interpolation", False)
 
         self.data_path = self.config.data.data_path
         self.input_path = self.config.data.input_path
         self.target_path = self.config.data.target_path
+
+        bands = self.config.data.bands
+
+        resample_512 = getattr(config.data, "resample_512", False)
+        lr_interpolation = getattr(config.data, "lr_interpolation", False)
 
         train = Path(self.data_path) / 'train.csv'
         test = Path(self.data_path) / 'test.csv'
@@ -105,7 +106,7 @@ class PercentileScaleClip:
         self.pmin = pmin
         self.pmax = pmax
 
-    def __call__(self, img: np.ndarray) -> torch.Tensor:
+    def __call__(self, img: np.ndarray) -> np.ndarray:
         """
         Args:
             img (np.ndarray): C x H x W
@@ -113,20 +114,18 @@ class PercentileScaleClip:
             torch.Tensor: C x H x W scaled to [0, 1]
         """
         assert img.ndim == 3, "Expected C x H x W"
-        img = img.astype(np.float32)
+        out = np.empty_like(img, dtype=np.float32)
 
         for c in range(img.shape[0]):
             band = img[c]
             vmin = np.percentile(band, self.pmin)
             vmax = np.percentile(band, self.pmax)
             if vmax - vmin > 1e-6:
-                img[c] = (band - vmin) / (vmax - vmin)
+                out[c] = (band - vmin) / (vmax - vmin)
             else:
-                img[c] = 0.0  # handle uniform bands
+                out[c] = 0.0  # handle uniform bands
 
-        img = np.clip(img, 0.0, 1.0)
-        return torch.from_numpy(img)
-
+        return np.clip(out, 0.0, 1.0, out=out)
 
 
 # read in panda file
@@ -136,7 +135,6 @@ class TIFDataset(Dataset):
         data_table: str | Path = "",
         input_path='',
         target_path='',
-        transform=A.Compose([A.Normalize(mean=0, std=1), ToTensorV2()]), # removed A.Normalize(mean=0, std=1),
         phase="test",
         image_type="lr",
         mask_class=41,
@@ -152,10 +150,7 @@ class TIFDataset(Dataset):
         self.input_path = input_path
         self.target_path = target_path
 
-        ### attenntion different normlaiyation now
-        #self.transform = transform
         self.transform = PercentileScaleClip(pmin=2, pmax=98)
-
 
         self.image_type = image_type  # Either LR od HR
         self.mask_class = mask_class
@@ -170,10 +165,7 @@ class TIFDataset(Dataset):
         # assertion and validation
         assert self.image_type in ["hr", "sr", "sr_4band"]
         assert bands in [3, 4]
-        # assert input_path in self.data.columns
-        # assert target_path in self.data.columns
-        #self.validate_data()
-        # generated
+
         # allows adding of individual sr-indexing of channel bands
         if band_indices is None:
             if self.image_type == 'hr':
@@ -189,79 +181,40 @@ class TIFDataset(Dataset):
                 self.band_indices = [1, 2, 3, 4]
                 self.id_prefix = 'S2'
 
-    def validate_data(self):
-        for i, col in self.data.iterrows():
-            img, mask = Path(col[self.input_path]), Path(col[self.target_path])
-            assert img.exists()
-            assert mask.exists()
-            # other validation
-        pass
-
-    def resample_mask_torch(self, arr: np.ndarray, scale_factor: float | int) -> np.ndarray:
-        """
-        Args:
-            arr: (channel x width x height) array will be resampled to (channel x scale_factor*width x scale_factor*height)
-            scale_factor: float, 0.25 for HR -> LR
-                                 4 for HR -> LR
-
-        Returns: ret_arr
-
-        """
-        # nearest neigbor interpolation for masks allows strict adherence to lr mask
-        if arr.ndim == 2:
-            arr = np.expand_dims(arr, axis=0)
-        ret_arr = torch.nn.functional.interpolate(
-            torch.from_numpy(arr).unsqueeze(0).float(),
-            scale_factor=scale_factor,
-            mode="nearest",
-            # antialias=True
-        ).squeeze().numpy()
-        return ret_arr.squeeze()
-
-    def resample_torch(self, arr: np.ndarray, scale_factor: float | int, mode: str='bilinear') -> np.ndarray:
-        """
-        Args:
-            arr: (channel x width x height) array will be resampled to (channel x scale_factor*width x scale_factor*height)
-            scale_factor: float, 0.25 for HR -> LR
-                                 4 for HR -> LR
-
-        Returns: ret_arr
-
-        """
-        anti_alias = False if mode=='nearest' else True
-        ret_arr = torch.nn.functional.interpolate(
-            torch.from_numpy(arr).unsqueeze(0),
-            scale_factor=scale_factor,
-            mode=mode,
-            antialias=anti_alias
-        ).squeeze().numpy()
-        return ret_arr
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        # tiel indexing
-
+    def validate(self, idx=0):
+        print(f'Validating dataset on image idx=={idx}')
         image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.tif"
         mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.tif"
 
-        img_profile = None
         # Load image
         with rasterio.open(Path(self.input_path) / image_id) as src:
             img = src.read(self.band_indices).astype(np.float32)
             img_profile = src.profile
+
+            img_min, img_max = np.min(img), np.max(img)
+            print('    Image min/max before conversion: ', img_min, img_max)
+
+            # validate data is in the range as well
             if img_profile['dtype'] == 'float32':
                 img = img
             elif img_profile['dtype'] == 'uint16':
-                img = img / 65535.0
+                img = img / 10000
+            elif img_profile['dtype'] == 'uint8':
+                img = img / 256
+
+            cimg_min, cimg_max = np.min(img), np.max(img)
+
+            if cimg_min < 0 or cimg_max > 1.0:
+                raise f'    Validator: {cimg_min} is smaller than 0 or {cimg_max} is greater than 1 after conversion.'
+            else:
+                print('    Conversion to range 0-1 worked.')
 
         if self.lr_interpolation:
             img = self.resample_torch(img, scale_factor=4, mode='nearest')
 
         # Load mask
         with rasterio.open(Path(self.target_path) / mask_id) as src:
-            mask = src.read(1).astype(np.uint8)  # Read first band only
+            mask = src.read(1).astype(np.uint8)
 
         # Convert mask to binary if needed (Assumes 0/1 classes)
         mask = (mask == self.mask_class).astype(np.float32)
@@ -291,18 +244,107 @@ class TIFDataset(Dataset):
             mask = self.resample_mask_torch(mask, scale_factor=2)
 
         # apply transform manually here - only scaling to 0-1
-        img_trafo = torch.from_numpy(img)
+        img_trafo = self.transform(img)
+
+        return img_trafo[:3, :, :], mask
+
+    def resample_mask_torch(self, arr: np.ndarray, scale_factor: float | int) -> np.ndarray:
+        """
+        Args:
+            arr: (channel x width x height) array will be resampled to (channel x scale_factor*width x scale_factor*height)
+            scale_factor: float, 0.25 for HR -> LR
+                                 4 for HR -> LR
+
+        Returns: ret_arr
+
+        """
+        # nearest neigbor interpolation for masks allows strict adherence to lr mask
+        if arr.ndim == 2:
+            arr = np.expand_dims(arr, axis=0)
+        ret_arr = torch.nn.functional.interpolate(
+            torch.from_numpy(arr).unsqueeze(0).float(),
+            scale_factor=scale_factor,
+            mode="nearest",
+        ).squeeze().numpy()
+        return ret_arr.squeeze()
+
+    def resample_torch(self, arr: np.ndarray, scale_factor: float | int, mode: str='bilinear') -> np.ndarray:
+        """
+        Args:
+            arr: (channel x width x height) array will be resampled to (channel x scale_factor*width x scale_factor*height)
+            scale_factor: float, 0.25 for HR -> LR
+                                 4 for HR -> LR
+
+        Returns: ret_arr
+        """
+        anti_alias = False if mode=='nearest' else True
+        ret_arr = torch.nn.functional.interpolate(
+            torch.from_numpy(arr).unsqueeze(0),
+            scale_factor=scale_factor,
+            mode=mode,
+            antialias=anti_alias
+        ).squeeze().numpy()
+        return ret_arr
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        # tile indexing
+
+        image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.tif"
+        mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.tif"
+
+        # Load image
+        with rasterio.open(Path(self.input_path) / image_id) as src:
+            img = src.read(self.band_indices).astype(np.float32)
+            img_profile = src.profile
+
+            # validate data is in the range as well
+            if img_profile['dtype'] == 'float32':
+                img = img
+            elif img_profile['dtype'] == 'uint16':
+                img = img / 10000
+            elif img_profile['dtype'] == 'uint8':
+                img = img / 256
+
+        if self.lr_interpolation:
+            img = self.resample_torch(img, scale_factor=4, mode='nearest')
+
+        # Load mask
+        with rasterio.open(Path(self.target_path) / mask_id) as src:
+            mask = src.read(1).astype(np.uint8)
+
+        # Convert mask to binary if needed (Assumes 0/1 classes)
+        mask = (mask == self.mask_class).astype(np.float32)
+
+        # use a 256 subsample with most building pixels
+        if self.use_subsample:
+            tile_coords = [(0, 0), (0, 256), (256, 0), (256, 256)]
+
+            # Dictionary to store all tiles with their perc_count
+            tiles_dict = {}
+
+            for top, left in tile_coords:
+                img_tile = img[:, top:top + 256, left:left + 256]
+                mask_tile = mask[top:top + 256, left:left + 256]
+                perc_count = np.count_nonzero(mask_tile)
+
+                # Store tiles in dictionary with their perc_count as value
+                tiles_dict[(top, left)] = (img_tile, mask_tile, perc_count)
+
+            # Select the tile with the highest perc_count
+            (top, left), (img, mask, _) = max(tiles_dict.items(), key=lambda x: x[1][2])
+
+        if self.resample_512:
+            # resample from bilinear: (4, 256, 256) -> (4, 512, 512)
+            #               nearest: (256, 256) -> (512, 512)
+            img = self.resample_torch(img, scale_factor=2)
+            mask = self.resample_mask_torch(mask, scale_factor=2)
+
+        # apply transform manually here - only scaling to 0-1
+        img_trafo = torch.from_numpy(self.transform(img))
         mask_trafo = torch.from_numpy(mask).unsqueeze(0)
 
-        # if self.transform:
-        #     transformed = self.transform(image=img.transpose(1, 2, 0), mask=mask)
-        #     img_trafo = transformed["image"]
-        #     mask_trafo = transformed["mask"]
-        # if self.transform:
-        #     img_trafo = self.transform(img)  # returns torch.Tensor C x H x W scaled [0, 1]
-        #     mask_trafo = torch.from_numpy(mask).float()
-
-            # print(img_trafo.shape, mask_trafo.shape)
-
-        return img_trafo, mask_trafo  # Add channel dimension to mask
+        return img_trafo, mask_trafo
 

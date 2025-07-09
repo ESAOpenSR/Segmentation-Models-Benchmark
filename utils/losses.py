@@ -149,7 +149,7 @@ class FocalTverskyLoss(nn.Module):
         self.gamma = gamma
         self.smooth = smooth
         print(
-            f"Focal Tversky Loss with alpha={alpha}, beta={beta}, gamma={gamma}, smooth={smooth}"
+            f"    Focal Tversky Loss with alpha={alpha}, beta={beta}, gamma={gamma}, smooth={smooth}"
         )
 
     def forward(self, y_pred, y_true):

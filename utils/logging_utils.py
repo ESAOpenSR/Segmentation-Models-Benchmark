@@ -100,7 +100,6 @@ def log_images(images, masks, preds, title="Training"):
 
     return pil_image
 
-
 def plot_mask_with_threshold(mask, low_threshold=0.2, high_threshold=0.75):
     # Convert the mask to a NumPy array if needed
     mask = mask.numpy() if isinstance(mask, torch.Tensor) else np.array(mask)

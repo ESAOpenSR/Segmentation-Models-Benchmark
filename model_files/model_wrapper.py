@@ -15,6 +15,8 @@ from model_files.model_losses import dice_loss
 #     calculate_batched_averages,
 # )
 
+import segmentation_models_pytorch as smp
+
 
 class model_pl(pl.LightningModule):
     def __init__(self, config: DictConfig):
@@ -31,7 +33,7 @@ class model_pl(pl.LightningModule):
         self.get_loss_fn()  # get loss function
 
     def get_loss_fn(self):
-        loss_command = self.config.training.loss
+        loss_command = self.config.training.loss.fn
         print("Creating loss of type:", loss_command)
         if loss_command == "BCEWithLogitsLoss":
             self.criterion = (
@@ -51,62 +53,75 @@ class model_pl(pl.LightningModule):
             self.criterion = RQLoss()
         elif loss_command == "FocalLoss":
             from utils.losses import FocalTverskyLoss
-            ftl = FocalTverskyLoss(alpha=0.3, beta=0.7, gamma=0.75)
+            ftl = FocalTverskyLoss(alpha=self.config.training.loss.a,
+                                   beta=self.config.training.loss.b,
+                                   gamma=self.config.training.loss.g)
             self.criterion = ftl.forward
         else:
             raise ValueError("Invalid Loss Function")
 
     def get_model(self, config):
         print("Creating Model of Type", config.model.model_type)
+        aux_params = None
+        if config.model.use_aux_params:
+            aux_params = dict(pooling="avg", dropout=0.3, classes=1, activation=None)
+
         # Load model parameters from config
         if config.model.model_type == "unet":
-            from model_files.unet_model import UNet
-            model = UNet(
-                n_channels=config.model.n_channels, n_classes=config.model.n_classes
-            )
-        elif config.model.model_type == "unet_pp":
-            import segmentation_models_pytorch as smp
             model = smp.Unet(
-                encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-                encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
-                in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
+                encoder_name=config.model.encoder,
+                encoder_weights=None,
+                encoder_depth=config.model.encoder_depth,
+                decoder_channels=config.model.decoder_channels,
+                decoder_use_norm=config.model.decoder_use_norm,
+                decoder_attention_type=config.model.decoder_attention_type,
+                decoder_interpolation=config.model.decoder_interpolation,
+                in_channels=4,
                 classes=1,
-            )  # model output channels (number of classes in your dataset)
-        elif config.model.model_type == "unet_pp_real":
-            import segmentation_models_pytorch as smp
+                activation=None
+            )
+
+        elif config.model.model_type == "unet_pp":
             model = smp.UnetPlusPlus(
                 encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
                 classes=1,
             )  # model output channels (number of classes in your dataset)
+
+        elif config.model.model_type == "unet_pp_real":
+            model = smp.UnetPlusPlus(
+                encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
+                classes=1,
+            )  # model output channels (number of classes in your dataset)
+
         elif config.model.model_type == "segformer":
-            import segmentation_models_pytorch as smp
             model = smp.Segformer(
                 encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
                 classes=1,
             )  # model output channels (number of classes in your dataset)
+
         elif config.model.model_type == "manet":
-            import segmentation_models_pytorch as smp
             model = smp.MAnet(
                 encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
                 classes=1,
             )  # model output channels (number of classes in your dataset)
+
         elif config.model.model_type == "pan":
-            import segmentation_models_pytorch as smp
             model = smp.PAN(
                 encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
                 classes=1,
             )  # model output channels (number of classes in your dataset)
-        elif config.model.model_type == "DeepLabV3Plus":
-            import segmentation_models_pytorch as smp
 
+        elif config.model.model_type == "DeepLabV3Plus":
             model = smp.DeepLabV3Plus(
                 encoder_name=config.model.encoder,
                 encoder_depth=5,
@@ -123,7 +138,6 @@ class model_pl(pl.LightningModule):
 
         elif "torchgeo" in config.model.model_type:
             from model_files.torchgeo_models import create_torchgeo_models
-
             model = create_torchgeo_models(config)
         else:
             raise ValueError("Invalid Model Type")
@@ -142,7 +156,7 @@ class model_pl(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         # Use AMP (Automatic Mixed Precision) during forward pass
-        with torch.cuda.amp.autocast(enabled=self.amp):
+        with torch.amp.autocast('cuda', enabled=self.amp):
             y_hat = self.forward(x)
 
             # Assuming binary segmentation (1 channel output)
@@ -167,9 +181,6 @@ class model_pl(pl.LightningModule):
                 loss_px_dict, status_px = calculate_metrics(
                     y, y_hat_thresh, phase="train"
                 )
-                # loss_obj_dict, status_obj = calculate_object_metrics(
-                #     y, y_hat_thresh, phase="train"
-                # )
                 if status_px:
                     self.log_dict(
                         loss_px_dict,
@@ -179,29 +190,6 @@ class model_pl(pl.LightningModule):
                         on_epoch=False,
                         sync_dist=True,
                     )
-                # if status_obj:
-                #     self.log_dict(
-                #         loss_obj_dict,
-                #         prog_bar=False,
-                #         logger=True,
-                #         on_step=True,
-                #         on_epoch=False,
-                #         sync_dist=True,
-                #     )
-            if batch_idx % 50 == 0:
-                # get building id metrics
-                y_hat_clone = y_hat.clone().detach()
-                # building_id_dict = self.get_building_id_metrics(
-                #     y_hat_clone, y, phase="train"
-                # )
-                # self.log_dict(
-                #     building_id_dict,
-                #     prog_bar=False,
-                #     logger=True,
-                #     on_step=True,
-                #     on_epoch=False,
-                #     sync_dist=True,
-                # )
         return loss
 
     @torch.no_grad()
@@ -221,9 +209,6 @@ class model_pl(pl.LightningModule):
         # Metrics
         if self.is_trainer_attached():
             loss_px_dict, status_px = calculate_metrics(y, y_hat_thresh, phase="val")
-            # loss_obj_dict, status_obj = calculate_object_metrics(
-            #     y, y_hat_thresh, phase="val"
-            # )
             if status_px:  # log only if valid metrics are returned
                 self.log_dict(
                     loss_px_dict,
@@ -235,61 +220,13 @@ class model_pl(pl.LightningModule):
                     on_epoch=True,
                     sync_dist=True,
                 )
-            # if status_obj:  # log only if valid metrics are returned
-            #     self.log_dict(
-            #         loss_obj_dict,
-            #         prog_bar=False,
-            #         logger=True,
-            #         # on_step=True,
-            #         # on_epoch=False,
-            #         on_step=False,
-            #         on_epoch=True,
-            #         sync_dist=True,
-            #     )
+
             if batch_idx < 5:  # log only first 5 val batches
                 val_image = log_images(x, y, y_hat, title="Training")
                 self.logger.experiment.log(
                     {"images/Validation": [wandb.Image(val_image)]}
                 )
-
-                # get building id metrics
-                # y_hat_thres = (y_hat>self.conf_threshold)*1
-                y_hat_clone = y_hat.clone().detach()
-                # building_id_dict = self.get_building_id_metrics(
-                #     y_hat_clone, y, phase="val"
-                # )
-                #
-                # self.log_dict(
-                #     building_id_dict,
-                #     prog_bar=False,
-                #     logger=True,
-                #     # on_step=True,
-                #     # on_epoch=False,
-                #     on_step=False,
-                #     on_epoch=True,
-                #     sync_dist=True,
-                # )
         return val_loss
-
-    # def get_building_id_metrics(self, mask_pred, mask_true, phase="train"):
-    #     if mask_pred.dim() == 4:
-    #         mask_pred = mask_pred.squeeze(1)
-    #     if mask_true.dim() == 4:
-    #         mask_true = mask_true.squeeze(1)
-    #     res_dict = calculate_batched_averages(mask_pred, mask_true)
-    #     res_dict = res_dict["average_percentages"]
-    #     # rename keys by appending "test"
-    #     p_n = phase + "_BuildID"
-    #
-    #     # fix samuel: dict of dicts not loggable
-    #     #res_dict = {f"{p_n}/{k}": v for k, v in res_dict.items()}
-    #     res_dicts = {f"{p_n}/{k}": v for k, v in res_dict.items()}
-    #     flattened_res_dict = {
-    #         f"{outer_key}/{inner_key}": value
-    #         for outer_key, inner_dict in res_dicts.items()
-    #         for inner_key, value in inner_dict.items()
-    #     }
-    #     return flattened_res_dict
 
     def is_trainer_attached(self):
         try:
