@@ -1,13 +1,16 @@
+import os.path
+
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
-# not used
-#from torchmetrics import Dice
+
 import wandb
 from omegaconf import OmegaConf, DictConfig
-from utils.metrics_utils import calculate_metrics, calculate_object_metrics
+from utils.metrics_utils import calculate_metrics, calculate_test_metrics
 from utils.logging_utils import log_images
 
 # losses
@@ -15,11 +18,6 @@ from utils.losses import BoundaryAwareLoss, FocalTverskyLoss, LossWrapper
 from torchgeo.losses import QRLoss as TorchgeoQRLoss
 from model_files.model_losses import dice_loss
 from torchgeo.losses import RQLoss
-
-from utils.building_id_percentage import (
-    calculate_object_identification,
-    calculate_batched_averages,
-)
 
 
 class model_pl(pl.LightningModule):
@@ -33,22 +31,31 @@ class model_pl(pl.LightningModule):
         # extract model settings
         self.n_classes = config.model.n_classes
         self.conf_threshold = config.model.conf_threshold
-        self.model = self.get_model(config)  # get model from function
-        self.criterion = self.get_loss_fn()  # get loss function
+        self.model = self.get_model(config)
+        self.criterion = self.get_loss_fn()
+        self.test_segmentation_metrics = []
+        self.test_object_metrics = []
+        self.test_object_metrics_per_size = []
 
     def get_loss_fn(self):
         loss_command = self.config.training.loss.fn
         print("Creating loss of type:", loss_command)
         if loss_command == "BCEWithLogitsLoss":
-            loss_fn = (
-                nn.CrossEntropyLoss() if self.n_classes > 1 else nn.BCEWithLogitsLoss()
-            )
+            loss_fn = (nn.CrossEntropyLoss() if self.n_classes > 1 else nn.BCEWithLogitsLoss())
+            return LossWrapper(loss_fn, expects_probs=True)
+
         elif loss_command == "BoundaryAwareLoss":
             loss_fn = BoundaryAwareLoss(dilation_ratio=0.02, alpha=1.0, beta=1.0)
+            return LossWrapper(loss_fn, expects_probs=True)
+
         elif loss_command == "QRLoss":
             loss_fn = TorchgeoQRLoss()
+            return LossWrapper(loss_fn, expects_probs=True)
+
         elif loss_command == "RQLoss":
             loss_fn = RQLoss()
+            return LossWrapper(loss_fn, expects_probs=True)
+
         elif loss_command == "FocalLoss":
             loss_fn = FocalTverskyLoss(alpha=self.config.training.loss.a,
                                        beta=self.config.training.loss.b,
@@ -143,13 +150,6 @@ class model_pl(pl.LightningModule):
 
     @torch.no_grad()
     def predict(self, x):
-        # if self.config.training.loss_req_sig:
-        #     return torch.sigmoid(self.forward(x))
-        # else:
-        #     return self.forward(x)
-
-        # contradiction with validation step
-        #return torch.sigmoid(self.forward(x))
         return self.forward(x)
 
     def training_step(self, batch, batch_idx):
@@ -157,72 +157,9 @@ class model_pl(pl.LightningModule):
         # Use AMP (Automatic Mixed Precision) during forward pass
         with torch.cuda.amp.autocast(enabled=False):
             y_hat = self.forward(x)
-            #logits = self(x)  # raw output
-
-            # Assuming binary segmentation (1 channel output)
-            # if self.config.training.loss_req_sig:
-            #     loss = self.criterion(
-            #         torch.sigmoid(y_hat), y.float()
-            #     )  # Main loss (e.g., BCEWithLogitsLoss) #.squeeze(1)
-            # else:
-            #     loss = self.criterion(y_hat, y.float())
-
-            # new implementation
             loss = self.criterion(y_hat, y.float())
 
         self.log("train_loss", loss)
-
-        # apply sigmoid, then thresh
-        # if self.config.training.loss_req_sig:
-        #     y_hat_thresh = (torch.sigmoid(y_hat.clone()) > self.conf_threshold) * 1
-        # else:
-        #     y_hat_thresh = (y_hat.clone() > self.conf_threshold) * 1
-
-        # new implementation
-        # y_hat_thresh = (torch.sigmoid(y_hat.detach()) > self.conf_threshold) * 1
-        #
-        # # Metrics
-        # if self.is_trainer_attached():
-        #     # get training dict
-        #     if batch_idx % 50 == 0:
-        #         loss_px_dict, status_px = calculate_metrics(
-        #             y, y_hat_thresh, phase="train"
-        #         )
-        #         # loss_obj_dict, status_obj = calculate_object_metrics(
-        #         #     y, y_hat_thresh, phase="train"
-        #         # )
-        #         if status_px:
-        #             self.log_dict(
-        #                 loss_px_dict,
-        #                 prog_bar=False,
-        #                 logger=True,
-        #                 on_step=True,
-        #                 on_epoch=False,
-        #                 sync_dist=True,
-        #             )
-        #         # if status_obj:
-        #         #     self.log_dict(
-        #         #         loss_obj_dict,
-        #         #         prog_bar=False,
-        #         #         logger=True,
-        #         #         on_step=True,
-        #         #         on_epoch=False,
-        #         #         sync_dist=True,
-        #         #     )
-        #     # if batch_idx % 50 == 0:
-        #     #     # get building id metrics
-        #     #     y_hat_clone = y_hat.clone().detach()
-        #     #     building_id_dict = self.get_building_id_metrics(
-        #     #         y_hat_clone, y, phase="train"
-        #     #     )
-        #         # self.log_dict(
-        #         #     building_id_dict,
-        #         #     prog_bar=False,
-        #         #     logger=True,
-        #         #     on_step=True,
-        #         #     on_epoch=False,
-        #         #     sync_dist=True,
-        #         # )
         return loss
 
     @torch.no_grad()
@@ -231,7 +168,6 @@ class model_pl(pl.LightningModule):
         y_hat = self.predict(x)  # Forward pass
         val_loss = self.criterion(y_hat, y.float())
 
-        # val_loss += dice_loss(y_hat, y.float(), multiclass=False)  # Dice loss to  main loss
         self.log("val_loss", val_loss)  # Log
 
         # Thresholding, sigmoid in predict
@@ -239,10 +175,7 @@ class model_pl(pl.LightningModule):
 
         # Metrics
         if self.is_trainer_attached():
-            loss_px_dict, status_px = calculate_metrics(y, y_hat_thresh, phase="val")
-            # loss_obj_dict, status_obj = calculate_object_metrics(
-            #     y, y_hat_thresh, phase="val"
-            # )
+            loss_px_dict, status_px = calculate_metrics(y, y_hat_thresh, self.conf_threshold, phase="val")
             if status_px:  # log only if valid metrics are returned
                 self.log_dict(
                     loss_px_dict,
@@ -254,62 +187,71 @@ class model_pl(pl.LightningModule):
                     on_epoch=True,
                     sync_dist=True,
                 )
-            # if status_obj:  # log only if valid metrics are returned
-            #     self.log_dict(
-            #         loss_obj_dict,
-            #         prog_bar=False,
-            #         logger=True,
-            #         # on_step=True,
-            #         # on_epoch=False,
-            #         on_step=False,
-            #         on_epoch=True,
-            #         sync_dist=True,
-            #     )
+
             if batch_idx < 5:  # log only first 5 val batches
-                val_image = log_images(x, y, y_hat, title="Training")
+                val_image = log_images(x, y, y_hat_thresh, title="Training")
                 self.logger.experiment.log(
                     {"images/Validation": [wandb.Image(val_image)]}
                 )
-
-                # get building id metrics
-                # y_hat_thres = (y_hat>self.conf_threshold)*1
-                #y_hat_clone = y_hat.clone().detach()
-                # building_id_dict = self.get_building_id_metrics(
-                #     y_hat_clone, y, phase="val"
-                # )
-                #
-                # self.log_dict(
-                #     building_id_dict,
-                #     prog_bar=False,
-                #     logger=True,
-                #     # on_step=True,
-                #     # on_epoch=False,
-                #     on_step=False,
-                #     on_epoch=True,
-                #     sync_dist=True,
-                # )
         return val_loss
 
-    def get_building_id_metrics(self, mask_pred, mask_true, phase="train"):
-        if mask_pred.dim() == 4:
-            mask_pred = mask_pred.squeeze(1)
-        if mask_true.dim() == 4:
-            mask_true = mask_true.squeeze(1)
+    @torch.no_grad()
+    def test_step(self, batch, batch_idx):
+        # calculate several metrics at once! log to returns and then create tables in on_test_epoch_end()
+        image_ids, x, y = batch  # get Data
+        y_hat = self.predict(x)  # Forward pass
+        val_loss = self.criterion(y_hat, y.float())
 
-        res_dict = calculate_batched_averages(mask_pred, mask_true)
-        res_dict = res_dict["average_percentages"]
-        # rename keys by appending "test"
-        p_n = phase + "_BuildID"
+        #self.log("test_loss", val_loss)  # Log
 
-        # fix samuel: dict of dicts not loggable
-        #res_dict = {f"{p_n}/{k}": v for k, v in res_dict.items()}
-        res_dicts = {f"{p_n}/{k}": v for k, v in res_dict.items()}
-        flattened_res_dict = {
-            f"{outer_key}/{inner_key}": value
-            for outer_key, inner_dict in res_dicts.items()
-            for inner_key, value in inner_dict.items()
-        }
-        return flattened_res_dict
+        # Thresholding, sigmoid in predict
+        y_hat_thresh = (torch.sigmoid(y_hat.detach()) > self.conf_threshold) * 1
+        (segmentation_metrics, object_metrics, object_metrics_per_size), _ = calculate_test_metrics(image_ids, y, y_hat_thresh, self.conf_threshold, phase="test")
+        self.test_segmentation_metrics.append(segmentation_metrics)
+        self.test_object_metrics.append(object_metrics)
+        self.test_object_metrics_per_size.append(object_metrics_per_size)
+
+        # Metrics
+        if self.is_trainer_attached():
+            if batch_idx < 5:  # log only first 5 val batches
+                val_image = log_images(x, y, y_hat_thresh, title="Testing")
+                self.logger.experiment.log(
+                    {"images/Testing": [wandb.Image(val_image)]}
+                )
+        return segmentation_metrics, object_metrics, object_metrics_per_size
+
+    def on_test_epoch_end(self):
+        self.aggregate_metrics(metric_dict=self.test_segmentation_metrics,
+                               metric_name='segmentation_metrics')
+        self.aggregate_metrics(metric_dict=self.test_object_metrics,
+                               metric_name='object_metrics')
+        self.aggregate_metrics(metric_dict=self.test_object_metrics_per_size,
+                               metric_name='object_metrics_per_size')
+        return
+
+    def aggregate_metrics(self, metric_dict, metric_name):
+        agg_metric = {k: [] for k in metric_dict[0].keys()}
+
+        for batch in metric_dict:
+            for metric_key, metric_values in batch.items():
+                agg_metric[metric_key].extend(metric_values)
+
+        df = pd.DataFrame.from_dict(agg_metric)
+
+        full_table = wandb.Table(dataframe=df)
+        wandb.log({f"full test {metric_name}": full_table})
+
+        mean_df = pd.DataFrame([df.drop(columns=['image_id']).mean()])
+        mean_table = wandb.Table(dataframe=mean_df)
+        wandb.log({f"mean test {metric_name}": mean_table})
+
+        if not os.path.exists(self.config.training.log_dir):
+            os.mkdir(self.config.training.log_dir)
+
+        df.to_csv(os.path.join(self.config.training.log_dir, f'all_{metric_name}.csv'), index=False)
+        mean_df.to_csv(os.path.join(self.config.training.log_dir, f'mean_{metric_name}.csv'), index=False)
+
+        return
 
     def is_trainer_attached(self):
         try:

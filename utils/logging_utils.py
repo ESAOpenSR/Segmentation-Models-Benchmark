@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import io
 
+
 def minmax_percentile(im,percentile=3):
     """
     Min-Max Normalization with Percentile Clipping
@@ -16,6 +17,7 @@ def minmax_percentile(im,percentile=3):
     im = (im-im_min)/(im_max-im_min)
     im = np.clip(im,0,1)
     return im
+
 
 def log_images(images, masks, preds, title="Training"):
     """

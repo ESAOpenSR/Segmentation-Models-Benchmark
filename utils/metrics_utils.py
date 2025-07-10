@@ -1,10 +1,10 @@
 import torch
-from torchvision.ops import box_iou
-from torchvision.ops import masks_to_boxes
 import numpy as np
 
+from scipy.ndimage import label
 
-def calculate_metrics(masks, preds,phase="train"):
+
+def calculate_metrics(masks, preds, threshhold, phase="train"):
     try:
         """
         Calculate binary classification metrics for a batch of 2D binary image masks and predictions.
@@ -18,7 +18,7 @@ def calculate_metrics(masks, preds,phase="train"):
         """
         # Ensure the inputs are binary (0 or 1)
         masks = masks.int()
-        preds = (preds >= 0.5).int()  # Threshold predictions at 0.5 for binary classification
+        preds = (preds > threshhold).int()  # Threshold predictions at 0.5 for binary classification
 
         # Flatten the tensors to compare pixel-wise across the entire batch
         masks = masks.view(-1)  # Flatten to [batch_size * height * width]
@@ -63,122 +63,210 @@ def calculate_metrics(masks, preds,phase="train"):
             }
         return metrics_dict_ph,True
 
+def calculate_segmentation_metrics(mask, pred):
+    # Calculate true positives, false positives, true negatives, false negatives
+    tp = (mask * pred).sum()  # True Positives
+    tn = ((1 - mask) * (1 - pred)).sum()  # True Negatives
+    fp = ((1 - mask) * pred).sum()  # False Positives
+    fn = (mask * (1 - pred)).sum()  # False Negatives
 
-def calculate_object_metrics(mask, pred, iou_threshold=0.5,phase="train"):
-    """
-    Calculate object-based metrics for a batch of predicted and ground truth bounding boxes.
-    
-    Parameters:
-    - gt_boxes: Ground truth bounding boxes (list of tensors [num_boxes, 4] for each image)
-    - pred_boxes: Predicted bounding boxes (list of tensors [num_boxes, 4] for each image)
-    - iou_threshold: IoU threshold to consider a detection as a true positive (default: 0.5)
-    - phase: Phase of the model (train or val), to be appended to metrics
-    
-    Returns:
-    - metrics_dict: Dictionary containing precision, recall, and F1-score.
-    """
-    # Get Valid examples from list of tensors. Valid: Has at least 1 GT and 1 pred
-    extract_ls = []
-    for v,(m,p) in enumerate(zip(mask,pred)):
-        if m.max()>=0.5 and p.max()>=0.5:
-            extract_ls.append(v)
-    mask = mask[extract_ls]
-    pred = pred[extract_ls]
-
-    # If No valid batches, return None and False
-    if len(extract_ls)==0:
-            metrics_dict_ph = {
-                    phase+"_ObjMetrics/precision": np.nan,
-                    phase+"_ObjMetrics/recall": np.nan,
-                    phase+"_ObjMetrics/f1_score": np.nan,
-                    phase+"_ObjMetrics/true_positives": np.nan,
-                    phase+"_ObjMetrics/false_positives": np.nan,
-                    phase+"_ObjMetrics/false_negatives": np.nan,
-                    }
-            return metrics_dict_ph,True
-
-        
-    gt_boxes,pred_boxes = [],[]
-    for m,p in zip(mask,pred):
-        # if all 0s, workflow breaks. set 1 corner to 1 in oprder to continue
-        """
-        if p.max()<=0.5 or :
-            p = p.clone()
-            p[0, 0] = 1
-        if m.max()<=0.5:
-            m = m.clone()
-            m[0, 0] = 1
-        """
-        gt_boxes.append(masks_to_boxes(m.squeeze(1)))
-        pred_boxes.append(masks_to_boxes(p.squeeze(1)))
-    
-    # stack boxes of masks and preds
-    gt_boxes, pred_boxes = torch.stack(gt_boxes),torch.stack(pred_boxes)
-
-    tp, fp, fn = 0, 0, 0
-    for i in range(len(gt_boxes)):
-        # Get the IoU between all predicted boxes and ground truth boxes
-        if len(pred_boxes[i]) > 0 and len(gt_boxes[i]) > 0:
-            ious = box_iou(pred_boxes[i], gt_boxes[i])
-            
-            # Determine true positives (IoU > threshold)
-            gt_matched = torch.zeros(len(gt_boxes[i]), dtype=torch.bool)
-            pred_matched = torch.zeros(len(pred_boxes[i]), dtype=torch.bool)
-            
-            for pred_idx in range(len(pred_boxes[i])):
-                iou_max, gt_idx = ious[pred_idx].max(0)
-                
-                if iou_max >= iou_threshold and not gt_matched[gt_idx]:
-                    # True positive if IoU is above the threshold and ground truth has not been matched
-                    tp += 1
-                    gt_matched[gt_idx] = True
-                    pred_matched[pred_idx] = True
-                else:
-                    # False positive if IoU is below threshold or no match
-                    fp += 1
-
-            # False negatives: Ground truth objects not detected
-            fn += len(gt_boxes[i]) - gt_matched.sum().item()
-        
-        # Handle case where no predictions were made
-        elif len(pred_boxes[i]) == 0:
-            fn += len(gt_boxes[i])
-        elif len(gt_boxes[i]) == 0:
-            fp += len(pred_boxes[i])
-
-    # Calculate precision, recall, and F1-score
-    precision = tp / (tp + fp + 1e-8)  # Add epsilon to avoid division by zero
+    # Calculate various metrics
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
+    precision = tp / (tp + fp + 1e-8)  # Add small epsilon to avoid division by zero
     recall = tp / (tp + fn + 1e-8)
+    specificity = tn / (tn + fp + 1e-8)
     f1_score = 2 * (precision * recall) / (precision + recall + 1e-8)
-    
-    metrics_dict = {
-        phase+"_ObjMetrics/precision": float(precision),
-        phase+"_ObjMetrics/recall": float(recall),
-        phase+"_ObjMetrics/f1_score": float(f1_score),
-        phase+"_ObjMetrics/true_positives": float(tp),
-        phase+"_ObjMetrics/false_positives": float(fp),
-        phase+"_ObjMetrics/false_negatives": float(fn),
-        }
+    iou = tp / (tp + fp + fn + 1e-8)  # Intersection over Union (IoU)
+    dice_coeff = (2 * tp) / (2 * tp + fp + fn + 1e-8)
 
+    return accuracy, precision, recall, specificity, f1_score, iou, dice_coeff
 
-    return metrics_dict,True
+def calculate_object_metrics(mask, pred,
+                             object_detection_treshhold=0.5,):
+    """
+        average_prediction-score (overall_prediction_avg):
+             Calculates the overall average prediction score for all objects. calculated as the total sum of pixels detected by the model in the object masks of the gt.
+             should reflect how much of the buildings AREA was correctly identified. Per image pixel based method with object mask (extractd from gt)
+        found_objects_percentage (overall_found_fraction):
+            Calculates the percentage of ground truth objects that are considered 'found' based on the predicted mask.
+            An object is considered 'found' if the average predicted score within its region is above the confidence threshold.
+            More of an object count metric, counts how many of the buildings can be considered hit by the model
 
+        NONE OF thes consider overestimatioN!!!!!!
 
+    """
+    size_ranges = {'0-9': (0, 9),
+                   '10-19': (10, 19),
+                   '20-34': (20, 34),
+                   '35-49': (35, 49),
+                   '50-74': (50, 74),
+                   '75+': (75, np.inf)}
+
+    # object_detection_threshold != normal threshold. how much are per object has to be found to count as detected?
+    total_sum = 0
+    total_objects = 0
+    found_objects = 0
+    results_per_size = {k: {'px_sum': 0, 'object_count': 0, 'found_count': 0} for k in size_ranges.keys()}
+
+    # get objects from gt mask
+    labeled_mask, num_objects = label(mask)
+
+    # Iterate over each object in the current mask
+    for object_id in range(1, num_objects + 1):
+        object_mask = (labeled_mask == object_id)
+
+        object_size = object_mask.sum()
+        avg_value = pred[object_mask].mean()
+
+        # Accumulate the sum and count of objects
+        total_sum += avg_value
+        total_objects += 1
+
+        # have we detected enough of the building area?
+        if avg_value >= object_detection_treshhold:
+            found_objects += 1
+
+        # assign object a sixe range
+        for size_range, (min_size, max_size) in size_ranges.items():
+            if min_size <= object_size <= max_size:
+                # gt reference of availabele objects
+                results_per_size[size_range]['object_count'] += 1
+
+                # pixel sum in these objects we have detected
+                results_per_size[size_range]['px_sum'] += avg_value
+
+                # have we detected enough of the building area?
+                if avg_value >= object_detection_treshhold:
+                    results_per_size[size_range]['found_count'] += 1
+                break
+
+    # Compute the overall average prediction score across all objects
+    overall_prediction_avg = total_sum / total_objects if total_objects > 0 else 0
+    overall_found_fraction = (found_objects / num_objects) if num_objects > 0 else 0
+
+    # compute metrics per size bin
+    # overall_prediction_avg_per_size = {}
+    # overall_found_fraction_per_size = {}
+    overall_per_size = {}
+    for size_range, data in results_per_size.items():
+        if data['object_count'] > 0:
+            overall_per_size[f'prediction_avg_{size_range}'] = data['px_sum'] / data['object_count']
+            overall_per_size[f'found_fraction_{size_range}'] = data['found_count'] / data['object_count']
+            # overall_prediction_avg_per_size[size_range] = data['px_sum'] / data['object_count']
+            # overall_found_fraction_per_size[size_range] = data['found_count'] / data['object_count']
+        else:
+            # overall_prediction_avg_per_size[size_range] = 0
+            # overall_found_fraction_per_size[size_range] = 0
+            overall_per_size[f'prediction_avg_{size_range}'] = 0
+            overall_per_size[f'found_fraction_{size_range}'] = 0
+
+    return overall_prediction_avg, overall_found_fraction, overall_per_size
+
+def calculate_test_metrics(image_ids, masks, preds, threshhold, phase="test"):
+    """
+        Calculate binary classification metrics for a batch of 2D binary image masks and predictions.
+
+        Parameters:
+        - masks: Ground truth binary masks (torch tensor of shape [batch_size, height, width])
+        - preds: Predicted binary masks (torch tensor of shape [batch_size, height, width])
+
+        Returns:
+        - metrics_dict: Dictionary containing various metrics.
+    """
+    # Ensure the inputs are binary (0 or 1)
+    masks = masks.int()
+    preds = (preds > threshhold).int()  # Threshold predictions at 0.5 for binary classification
+
+    segmentation_metrics = {
+                "image_id": [],
+                "accuracy": [],
+                "precision": [],
+                "recall": [],
+                "specificity": [],
+                "f1_score": [],
+                "iou": [],
+                "dice_coeff": [],
+            }
+
+    object_metrics = {
+                "image_id": [],
+                "object_prediction_average": [],
+                "overall_found_fraction": [],
+            }
+
+    object_metrics_per_size = {
+        "image_id": [],
+            }
+
+    # iterate over batches (slower but wtf) to get individual mask and pred
+    # calculate segmentation metrics AND object detextion metrics
+    for image_id, mask, pred in zip(image_ids, masks, preds):
+        # map to 256x256 np arrays
+        mask, pred = mask.squeeze(0).cpu().numpy(), pred.squeeze(0).cpu().numpy()
+
+        accuracy, precision, recall, specificity, f1_score, iou, dice_coeff = calculate_segmentation_metrics(mask, pred)
+        overall_prediction_avg, overall_found_fraction, overall_per_size = calculate_object_metrics(mask, pred)
+
+        # utils
+        segmentation_metrics["image_id"].append(image_id)
+        object_metrics["image_id"].append(image_id)
+        object_metrics_per_size["image_id"].append(image_id)
+
+        # segmentation metrics
+        segmentation_metrics["accuracy"].append(round(float(accuracy), 4))
+        segmentation_metrics["precision"].append(round(float(precision), 4))
+        segmentation_metrics["recall"].append(round(float(recall), 4))
+        segmentation_metrics["specificity"].append(round(float(specificity), 4))
+        segmentation_metrics["f1_score"].append(round(float(f1_score), 4))
+        segmentation_metrics["iou"].append(round(float(iou), 4))
+        segmentation_metrics["dice_coeff"].append(round(float(dice_coeff), 4))
+
+        # object based metrics
+        object_metrics["object_prediction_average"].append(round(float(overall_prediction_avg), 4))
+        object_metrics["overall_found_fraction"].append(round(float(overall_found_fraction), 4))
+
+        # object based metrics per size
+        for k, v in overall_per_size.items():
+            if k not in object_metrics_per_size:
+                object_metrics_per_size[k] = [round(float(v), 4)]
+            else:
+                object_metrics_per_size[k].append(round(float(v), 4))
+
+    return (segmentation_metrics, object_metrics, object_metrics_per_size), True
 
 if __name__=="__main__":
     from omegaconf import OmegaConf
-    from data.dataset_masks import pl_datamodule
-    config = OmegaConf.load("configs/config_hr.yaml")
-
-
+    from data.dataset_austria_v2 import pl_datamodule
+    import pandas as pd
+    config = OmegaConf.load("/home/shollend/coding/building_segmentation/configs/samuel_remodel_configs/config_diffusion_changing.yaml")
 
     pl_dm = pl_datamodule(config)
-    images,masks = next(iter(pl_dm.train_dataloader()))
+    #images, masks = next(iter(pl_dm.train_dataloader()))
+    ids, images, masks = next(iter(pl_dm.test_dataloader()))
     preds = torch.zeros_like(masks)
-    #preds = masks.clone()
-    metrics_a = calculate_object_metrics(masks, preds,phase="train")
-    print(metrics_a)
-    metrics_b = calculate_metrics(masks, preds,phase="train")
-    print(metrics_b)
+    #metrics_b = calculate_metrics(masks, preds, threshhold=0.75, phase="train")
 
-    metrics_a = calculate_object_metrics(torch.zeros(2,3,512,512), torch.zeros(2,1,512,512),phase="train")
+    (segmentation_metrics, object_metrics, object_metrics_per_size), _ = calculate_test_metrics(ids, masks, preds, threshhold=0.75, phase='test')
+
+    segmentation_metrics, object_metrics, object_metrics_per_size = [segmentation_metrics], [object_metrics], [object_metrics_per_size]
+
+    agg_metric = {k: [] for k in segmentation_metrics[0].keys()}
+    for batch in segmentation_metrics:
+        for metric_key, metric_values in batch.items():
+            agg_metric[metric_key].extend(metric_values)
+    df = pd.DataFrame.from_dict(agg_metric)
+    print(df)
+
+    agg_metric = {k: [] for k in object_metrics[0].keys()}
+    for batch in object_metrics:
+        for metric_key, metric_values in batch.items():
+            agg_metric[metric_key].extend(metric_values)
+    df = pd.DataFrame.from_dict(agg_metric)
+    print(df)
+
+    agg_metric = {k: [] for k in object_metrics_per_size[0].keys()}
+    for batch in object_metrics_per_size:
+        for metric_key, metric_values in batch.items():
+            agg_metric[metric_key].extend(metric_values)
+    df = pd.DataFrame.from_dict(agg_metric)
+    print(df)
