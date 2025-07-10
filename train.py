@@ -13,20 +13,9 @@ from datetime import datetime
 import os, sys, wandb
 
 # Load the model --------------------------------------------------------------
-default_config_path = "configs/samuel_configs/unet_pp/config_orthophoto.yaml"  # set default path to config file
-#default_config_path = "configs/samuel_configs/unet_pp/config_orthophoto_full512.yaml"  # set default path to config file
-#default_config_path = "configs/samuel_configs/deeplab/config_orthophoto.yaml"  # set default path to config file
 
-#default_config_path = "configs/samuel_configs/unet_pp/config_diffusion.yaml"  # set default path to config file
-# default_config_path = "configs/samuel_configs/deeplab/config_diffusion.yaml"  # set default path to config file
-
-#default_config_path = "configs/samuel_configs/unet_pp/config_bilinear.yaml"  # set default path to config file
-# default_config_path = "configs/samuel_configs/deeplab/config_bilinear.yaml"  # set default path to config file
-
-#default_config_path = "configs/samuel_configs/unet_pp/config_sen2sr.yaml"  # set default path to config file
-
-#default_config_path = "configs/samuel_configs/unet_pp/config_deepsent.yaml"
-default_config_path = "configs/samuel_configs/unet_pp/config_bilinear_nninterpolation.yaml"
+default_config_path = "configs/samuel_remodel_configs/config_diffusion_changing.yaml"
+default_config_path = "configs/samuel_remodel_configs/config_bilinear.yaml"
 
 # Check if a config path is provided as a command-line argument
 config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path  # get argument

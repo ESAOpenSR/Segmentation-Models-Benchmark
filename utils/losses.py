@@ -2,6 +2,21 @@ import torch
 import torch.nn.functional as F
 import cv2
 import numpy as np
+import torch.nn as nn
+
+
+class LossWrapper(nn.Module):
+    def __init__(self, base_loss: nn.Module, expects_probs: bool):
+        super().__init__()
+        self.base_loss = base_loss
+        self.expects_probs = expects_probs
+
+    def forward(self, logits, targets):
+        if self.expects_probs:
+            preds = torch.sigmoid(logits)
+        else:
+            preds = logits
+        return self.base_loss(preds, targets)
 
 
 class BoundaryAwareLoss(torch.nn.Module):
@@ -133,7 +148,7 @@ import torch.nn as nn
 
 
 class FocalTverskyLoss(nn.Module):
-    def __init__(self, alpha=0.3, beta=0.7, gamma=0.75, smooth=1e-6):
+    def __init__(self, alpha=0.7, beta=0.3, gamma=0.75, smooth=1e-6):
         """
         Initialize the Focal Tversky Loss.
 
