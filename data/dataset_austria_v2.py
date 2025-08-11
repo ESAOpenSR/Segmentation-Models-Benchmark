@@ -152,7 +152,7 @@ class TIFDataset(Dataset):
     ):
         # own, defintely needed
         assert Path(data_table).exists()
-        self.data = pd.read_csv(data_table)[:64]
+        self.data = pd.read_csv(data_table)
         self.input_path = input_path
         self.target_path = target_path
         self.transform = PercentileScaleClip(pmin=2, pmax=98)
@@ -210,7 +210,8 @@ class TIFDataset(Dataset):
             print(f'       value range: {cimg_min}, {cimg_max}')
 
         if cimg_min < 0 or cimg_max > 1.0:
-            raise f'   Validator: {cimg_min} is smaller than 0 or {cimg_max} is greater than 1 after conversion.'
+            print(cimg_min, cimg_max)
+            raise TypeError(f'   Validator: {cimg_min} is smaller than 0 or {cimg_max} is greater than 1 after conversion.')
 
         return img, mask
 
@@ -309,8 +310,8 @@ class TIFDataset(Dataset):
             mask = self.resample_mask_torch(mask, scale_factor=2)
 
         # apply transform manually here - only scaling to 0-1
-        img_trafo = torch.from_numpy(self.transform(img))
-        #img_trafo = torch.from_numpy(img)
+        #img_trafo = torch.from_numpy(self.transform(img))
+        img_trafo = torch.from_numpy(img)
         mask_trafo = torch.from_numpy(mask).float().unsqueeze(0)
 
         if self.return_index:

@@ -90,12 +90,18 @@ class model_pl(pl.LightningModule):
             )
         elif config.model.model_type == "unet_pp":
             import segmentation_models_pytorch as smp
-            model = smp.Unet(
-                encoder_name=config.model.encoder,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-                encoder_weights=None,  # use `imagenet` pre-trained weights for encoder initialization
-                in_channels=config.model.n_channels,  # model input channels (4 for RGB-NIR, 3 for RGB, etc.)
-                classes=1,
-            )  # model output channels (number of classes in your dataset)
+            model = smp.UnetPlusPlus(
+                encoder_name=config.model.encoder,
+                encoder_weights=None,
+                encoder_depth=config.model.encoder_depth,
+                decoder_channels=config.model.decoder_channels,
+                decoder_use_norm=config.model.decoder_use_norm,
+                decoder_attention_type=config.model.decoder_attention_type,
+                decoder_interpolation=config.model.decoder_interpolation,
+                in_channels=config.model.n_channels,
+                classes=config.model.n_classes,
+                activation=None
+            )
         elif config.model.model_type == "segformer":
             import segmentation_models_pytorch as smp
             model = smp.Segformer(

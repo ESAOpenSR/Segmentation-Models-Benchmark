@@ -62,7 +62,7 @@ else:
 data_module = pl_datamodule(config)
 data_module.train_dataset.validate(idx=10, verbose=True)
 
-train = False
+train = True
 
 if train:
     # Define Callbacks and Loggers ------------------------------------------------
