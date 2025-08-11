@@ -14,7 +14,7 @@ from utils.metrics_utils import calculate_metrics, calculate_test_metrics
 from utils.logging_utils import log_images
 
 # losses
-from utils.losses import BoundaryAwareLoss, FocalTverskyLoss, LossWrapper
+from utils.losses import BoundaryAwareLoss, FocalTverskyLoss, LossWrapper, BCEAndFocalTverskyLoss, BCELoss
 from torchgeo.losses import QRLoss as TorchgeoQRLoss
 from model_files.model_losses import dice_loss
 from torchgeo.losses import RQLoss
@@ -61,6 +61,20 @@ class model_pl(pl.LightningModule):
                                        beta=self.config.training.loss.b,
                                        gamma=self.config.training.loss.g)
             return LossWrapper(loss_fn, expects_probs=True)
+
+        elif loss_command == "BCE":
+            loss_fn = BCELoss()
+            return LossWrapper(loss_fn, expects_probs=True)
+
+        elif loss_command == "BCE+FTL":
+            loss_fn = BCEAndFocalTverskyLoss(
+                alpha=self.config.training.loss.a,
+                beta=self.config.training.loss.b,
+                gamma=self.config.training.loss.g,
+                bce_weight=0.5,
+                ftl_weight=0.5
+            )
+            return LossWrapper(loss_fn, expects_probs=True)
         else:
             raise ValueError("Invalid Loss Function")
 
@@ -70,6 +84,7 @@ class model_pl(pl.LightningModule):
 
         if config.model.model_type == "unet":
             from model_files.unet_model import UNet
+            print("WARNING; this is the old weird unet!")
 
             model = UNet(
                 n_channels=config.model.n_channels, n_classes=config.model.n_classes

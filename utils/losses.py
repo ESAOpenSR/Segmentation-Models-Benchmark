@@ -19,6 +19,41 @@ class LossWrapper(nn.Module):
         return self.base_loss(preds, targets)
 
 
+class BCEAndFocalTverskyLoss(nn.Module):
+    def __init__(self, alpha=0.7, beta=0.3, gamma=0.75, smooth=1e-6, bce_weight=0.5, ftl_weight=0.5):
+        """
+        Combines BCE Loss and Focal Tversky Loss.
+
+        Args:
+            alpha, beta, gamma, smooth: Parameters for FocalTverskyLoss.
+            bce_weight: Weight for BCE loss contribution.
+            ftl_weight: Weight for Focal Tversky loss contribution.
+        """
+        super().__init__()
+        self.bce = nn.BCELoss()
+        self.ftl = FocalTverskyLoss(alpha, beta, gamma, smooth)
+        self.bce_weight = bce_weight
+        self.ftl_weight = ftl_weight
+
+    def forward(self, y_pred, y_true):
+        bce_loss = self.bce(y_pred, y_true)
+        ftl_loss = self.ftl(y_pred, y_true)
+        return self.bce_weight * bce_loss + self.ftl_weight * ftl_loss
+
+
+class BCELoss(nn.Module):
+    def __init__(self):
+        """
+        Standard Binary Cross Entropy Loss (expects probabilities, not logits).
+        """
+        super().__init__()
+        self.bce = nn.BCELoss()
+
+    def forward(self, y_pred, y_true):
+        return self.bce(y_pred, y_true)
+
+
+
 class BoundaryAwareLoss(torch.nn.Module):
     def __init__(self, dilation_ratio=0.02, alpha=1.0, beta=1.0):
         """

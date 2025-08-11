@@ -20,10 +20,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 # internal
 from model_files import model_pl
 
-# Load the model --------------------------------------------------------------
-
-default_config_path = "configs/samuel_remodel_configs/config_diffusion_changing.yaml"
-#default_config_path = "configs/samuel_remodel_configs/config_bilinear.yaml"
+# Load the config
+default_config_path = "configs/samuel_remodel_configs/filtered_config_ortho.yaml"
 
 # Check if a config path is provided as a command-line argument
 config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path  # get argument
@@ -32,7 +30,7 @@ config = OmegaConf.load(config_path)
 print("Loaded Config from:", config_path)
 model = model_pl(config)  # model selection is handled by the model_pl function
 
-# Continue Training PL --------------------------------------------------------
+# Continue Training PL
 continue_training = config.training.pl_settings.continue_training
 # logic to set continued training variable for Trainer
 if continue_training in [False, None]:
@@ -71,6 +69,11 @@ if train:
     #wandb_logger = WandbLogger(entity="zerhigh-tu-wien", project="sr_validation",)
     # isp
     wandb_logger = WandbLogger(entity="opensr", project="Samuel_building_segmentation",)
+
+    # Log the config.yaml as a W&B artifact under the current run
+    artifact = wandb.Artifact("config-file", type="config")
+    artifact.add_file(default_config_path)
+    wandb_logger.experiment.log_artifact(artifact)  # use the current run from the logger
 
     # Saving Callbacks
     dir_save_checkpoints = os.path.join("logs/", config.training.wandb_project_name, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))

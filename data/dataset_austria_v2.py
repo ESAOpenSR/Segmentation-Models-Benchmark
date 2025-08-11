@@ -29,9 +29,12 @@ class pl_datamodule(pl.LightningDataModule):
         self.input_path = self.config.data.input_path
         self.target_path = self.config.data.target_path
 
-        train = Path(self.data_path) / 'train.csv'
-        test = Path(self.data_path) / 'test.csv'
-        val = Path(self.data_path) / 'val.csv'
+        # determine dataset full/fitlered
+        dataset = self.config.data.dataset
+
+        train = Path(self.data_path) / dataset / 'train.csv'
+        test = Path(self.data_path) / dataset / 'test.csv'
+        val = Path(self.data_path) / dataset / 'val.csv'
 
         # instanciate datasets for phases
         print("Creating dataset AUSTRIA_V2 for Type:", self.image_type.upper())
