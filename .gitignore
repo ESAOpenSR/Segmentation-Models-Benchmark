@@ -21,6 +21,8 @@ logs/
 wandb/
 images/
 
+model_files/HRNet
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
