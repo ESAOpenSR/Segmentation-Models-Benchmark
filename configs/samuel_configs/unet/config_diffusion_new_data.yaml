@@ -1,9 +1,9 @@
 model:
-  model_type: "torchgeo_resnet"            # Model type (e.g., unet, deeplabv3)
+  model_type: "unet"            # Model type (e.g., unet, deeplabv3)
   n_channels: 4                 # Number of input channels (e.g., RGB image has 3 channels)
   n_classes: 1                  # Number of output classes for the segmentation task
   conf_threshold: 0.75           # Confidence threshold for the segmentation task
-  encoder: "se_resnext50_32x4d"    # choose from https://smp.readthedocs.io/en/latest/encoders.html, only supported for smp models
+  encoder: "mobilenet_v2"    # choose from https://smp.readthedocs.io/en/latest/encoders.html, only supported for smp models
 
 training:
   wandb_project_name: 'Samuel_building_segmentation'     # Name of the Weights & Biases project
@@ -24,7 +24,7 @@ training:
     early_stop_metric: "val_loss"
     accelerator: 'cuda'
     devices:  [1]
-    strategy: 'ddp_find_unused_parameters_true' #"ddp"
+    strategy: "ddp"
     check_val_every_n_epoch: 1 # has to be int
     log_every_n_steps: 100
     #val_check_interval: 10 # float for percentage 0.25
@@ -43,7 +43,7 @@ data:
   interpolation_type: 'bicubic' # Type of interpolation to use
   crop: True                    # Crop the image to the wanted size
   data_type: 'sr_4band'               # Type of data to use (e.g., lr,sr,hr)
-  no_workers: 31 #16                # Number of workers for the DataLoader
+  no_workers: 31                # Number of workers for the DataLoader
   batch_size: 32                # Batch size for the DataLoader
   data_path: '/data/USERS/shollend/metadata/stratification_tables/'
   input_path: '/data/USERS/shollend/sentinel2/sr_inference/diffusion_updated_simon/sr_ims_Austria/'

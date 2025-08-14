@@ -45,6 +45,6 @@ data:
   no_workers: 31 #16                # Number of workers for the DataLoader
   batch_size: 32                # Batch size for the DataLoader
   data_path: '/data/USERS/shollend/metadata/stratification_tables/'
-  input_path: '/data/USERS/shollend/sentinel2/sr_inference/diffusion/'
+  input_path: '/data/USERS/shollend/sentinel2/sr_inference/diffusion_updated_simon/sr_ims_Austria'
   target_path: '/data/USERS/shollend/combined_download/output/hr_mask/'
 

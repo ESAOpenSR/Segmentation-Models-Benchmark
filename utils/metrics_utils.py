@@ -238,7 +238,7 @@ if __name__=="__main__":
     from omegaconf import OmegaConf
     from data.dataset_austria_v2 import pl_datamodule
     import pandas as pd
-    config = OmegaConf.load("/configs/samuel_remodel_configs/full_config_diffusion.yaml")
+    config = OmegaConf.load("/configs/samuel_remodel_configs/filtered_config_diffusion.yaml")
 
     pl_dm = pl_datamodule(config)
     #images, masks = next(iter(pl_dm.train_dataloader()))

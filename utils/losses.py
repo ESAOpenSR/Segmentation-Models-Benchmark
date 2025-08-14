@@ -12,11 +12,22 @@ class LossWrapper(nn.Module):
         self.expects_probs = expects_probs
 
     def forward(self, logits, targets):
-        if self.expects_probs:
-            preds = torch.sigmoid(logits)
+        # remodel hrnet output to main loss instead of aux+main
+        if isinstance(logits, list):
+            aux_logits, main_logits = logits  # main output instead of aux loss
+            if self.expects_probs:
+                aux_preds, main_preds = torch.sigmoid(aux_logits), torch.sigmoid(main_logits)
+            else:
+                aux_preds, main_preds = aux_logits, main_logits
+
+            return self.base_loss(main_preds, targets) + 0.4 * self.base_loss(aux_preds, targets)
+
         else:
-            preds = logits
-        return self.base_loss(preds, targets)
+            if self.expects_probs:
+                preds = torch.sigmoid(logits)
+            else:
+                preds = logits
+            return self.base_loss(preds, targets)
 
 
 class BCEAndFocalTverskyLoss(nn.Module):

@@ -157,6 +157,11 @@ class model_pl(pl.LightningModule):
                 upsampling=4,
                 aux_params=None,
             )
+        elif config.model.model_type == "hrnet":
+            from model_files.HRNet.lib.models import hrnet, seg_hrnet, seg_hrnet_ocr
+            print('loading hr net')
+            config = OmegaConf.load('./model_files/HRNet/configs/seg_hrnet_ocr.yaml')
+            model = seg_hrnet_ocr.get_seg_model(cfg=config)
 
         elif "torchgeo" in config.model.model_type:
             from model_files.torchgeo_models import create_torchgeo_models
@@ -191,8 +196,14 @@ class model_pl(pl.LightningModule):
 
         self.log("val_loss", val_loss)  # Log
 
+        # check if aux, main from hr net
+        if isinstance(y_hat, list):
+            y_hat_pred = y_hat[1]
+        else:
+            y_hat_pred = y_hat
+
         # Thresholding, sigmoid in predict
-        y_hat_thresh = (torch.sigmoid(y_hat.detach()) > self.conf_threshold) * 1
+        y_hat_thresh = (torch.sigmoid(y_hat_pred.detach()) > self.conf_threshold) * 1
 
         # Metrics
         if self.is_trainer_attached():
@@ -218,6 +229,7 @@ class model_pl(pl.LightningModule):
 
     @torch.no_grad()
     def test_step(self, batch, batch_idx):
+        print('test step')
         # calculate several metrics at once! log to returns and then create tables in on_test_epoch_end()
         image_ids, x, y = batch  # get Data
         y_hat = self.predict(x)  # Forward pass
@@ -225,12 +237,28 @@ class model_pl(pl.LightningModule):
 
         #self.log("test_loss", val_loss)  # Log
 
+        # check if aux, main from hr net
+        if isinstance(y_hat, list):
+            y_hat_pred = y_hat[1]
+        else:
+            y_hat_pred = y_hat
+
         # Thresholding, sigmoid in predict
-        y_hat_thresh = (torch.sigmoid(y_hat.detach()) > self.conf_threshold) * 1
+        y_hat_thresh = (torch.sigmoid(y_hat_pred.detach()) > self.conf_threshold) * 1
         (segmentation_metrics, object_metrics, object_metrics_per_size), _ = calculate_test_metrics(image_ids, y, y_hat_thresh, self.conf_threshold, phase="test")
         self.test_segmentation_metrics.append(segmentation_metrics)
         self.test_object_metrics.append(object_metrics)
         self.test_object_metrics_per_size.append(object_metrics_per_size)
+
+        save_to_disk = False
+        if save_to_disk:
+            for image_id, pred in zip(image_ids, y_hat_thresh):
+                np_pred = pred.cpu().numpy().squeeze()
+
+                # load georeference
+                # crop georeference to 256x256 tile
+                # save img
+
 
         # Metrics
         if self.is_trainer_attached():

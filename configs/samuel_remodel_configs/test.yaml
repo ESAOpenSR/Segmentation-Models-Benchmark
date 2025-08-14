@@ -1,9 +1,9 @@
 model:
-  model_type: "hrnet"            # Model type (e.g., unet, deeplabv3)
+  model_type: "new_unet"            # Model type (e.g., unet, deeplabv3)
   n_channels: 4                 # Number of input channels (e.g., RGB image has 3 channels)
   n_classes: 1                  # Number of output classes for the segmentation task
   conf_threshold: 0.75           # Confidence threshold for the segmentation task
-  encoder: "tu-hrnet_w48"    # choose from https://smp.readthedocs.io/en/latest/encoders.html, only supported for smp models
+  encoder: "se_resnext50_32x4d" #"se_resnext50_32x4d"  tu-hrnet_w48  # choose from https://smp.readthedocs.io/en/latest/encoders.html, only supported for smp models
   encoder_depth: 5
   decoder_channels: [512, 256, 128, 64, 32]
   decoder_use_norm: "batchnorm"
@@ -18,7 +18,7 @@ training:
     fn: 'FocalLoss'     # Loss function to use (e.g., combined, BCEWithLogitsLoss, CrossEntropyLoss)
     a: 0.7
     b: 0.3
-    g: 1.33
+    g: 1.5
   learning_rate: 1e-4            # Learning rate for the optimizer
   weight_decay: 5e-5            # Weight decay (L2 regularization)
   momentum: 0.999               # Momentum for optimizer (e.g., RMSprop or SGD)
@@ -39,11 +39,11 @@ training:
     max_epochs: 100000
     limit_val_batches: 1000
     continue_training: False #"logs/building_comparison/2024-10-10_22-35-39/last.ckpt"
-    load_weights_only: False #"logs/building_comparison_DL/2024-11-06_12-23-45/last.ckpt" # false, or ckpt path
+    load_weights_only: "logs/Samuel_building_segmentation/2025-08-13_17-39-17/epoch=41-step=20832.ckpt" #"logs/building_comparison_DL/2024-11-06_12-23-45/last.ckpt" # false, or ckpt path
 
 data:
   dataset_type: "RS"            # ["fake", "RS"]
-  dataset: "full"
+  dataset: "filtered"
   normalize: 'percentile'       # allows percentile normalisation
   bands: 4                      # Number of bands in the input image
   use_256_subsample: True       # select and crop a subsample of the image

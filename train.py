@@ -21,7 +21,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from model_files import model_pl
 
 # Load the config
-default_config_path = "configs/samuel_remodel_configs/filtered_config_ortho.yaml"
+default_config_path = "configs/samuel_remodel_configs/filtered_config_s2_bilinear.yaml"
+#default_config_path = "configs/samuel_remodel_configs/test.yaml"
 
 # Check if a config path is provided as a command-line argument
 config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path  # get argument
@@ -60,7 +61,25 @@ else:
 data_module = pl_datamodule(config)
 data_module.train_dataset.validate(idx=10, verbose=True)
 
-train = True
+train = False
+
+if not train:
+    print('doing testing')
+    #test inference
+    trainer = Trainer(
+        accelerator=config.training.pl_settings.accelerator,
+        devices=config.training.pl_settings.devices,
+        strategy=config.training.pl_settings.strategy,
+        check_val_every_n_epoch=config.training.pl_settings.check_val_every_n_epoch,
+        log_every_n_steps=config.training.pl_settings.log_every_n_steps,
+        # val_check_interval=config.training.pl_settings.val_check_interval,
+        max_epochs=config.training.pl_settings.max_epochs,
+        limit_val_batches=config.training.pl_settings.limit_val_batches,
+
+    )
+
+    trainer.test(model, datamodule=data_module)
+    pass
 
 if train:
     # Define Callbacks and Loggers ------------------------------------------------
