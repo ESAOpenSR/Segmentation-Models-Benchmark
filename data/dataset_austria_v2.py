@@ -105,7 +105,8 @@ class pl_datamodule(pl.LightningDataModule):
                           shuffle=False,
                           num_workers=self.no_workers,
                           prefetch_factor=4,
-                          persistent_workers=True,)
+                          persistent_workers=True,
+                          )
 
 
 class PercentileScaleClip:
@@ -250,11 +251,16 @@ class TIFDataset(Dataset):
         Returns: ret_arr
 
         """
+
+        antialis = True
+        if mode == 'nearest':
+            antialis = False
+
         ret_arr = torch.nn.functional.interpolate(
             torch.from_numpy(arr).unsqueeze(0),
             scale_factor=scale_factor,
             mode=mode,
-            antialias=True
+            antialias=antialis
         ).squeeze().numpy()
         return ret_arr
 
@@ -323,15 +329,9 @@ class TIFDataset(Dataset):
 
         if self.return_index:
             # add metadata for testing phase
-            metadata = {'image_id': f"{self.data.loc[idx, 'id']:05d}"}
-            if self.use_subsample:
-                metadata['window'] = (selected_top, selected_left)
+            metadata = f"{self.data.loc[idx, 'id']:05d}"
 
-                window = rasterio.windows.Window(selected_top, selected_left, 256, 256)
-                metadata['sub_transform'] = img_src.window_transform(window)
-                metadata['src_profile'] = img_src.profile
-
-            return metadata, img_trafo, mask_trafo
+            return metadata, (selected_top, selected_left), img_trafo, mask_trafo
         else:
             return img_trafo, mask_trafo
 

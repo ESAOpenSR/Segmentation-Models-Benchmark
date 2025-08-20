@@ -162,7 +162,7 @@ def calculate_object_metrics(mask, pred,
 
     return overall_prediction_avg, overall_found_fraction, overall_per_size
 
-def calculate_test_metrics(metadata, masks, preds, threshhold, phase="test"):
+def calculate_test_metrics(image_ids, masks, preds, threshhold, phase="test"):
     """
         Calculate binary classification metrics for a batch of 2D binary image masks and predictions.
 
@@ -175,7 +175,7 @@ def calculate_test_metrics(metadata, masks, preds, threshhold, phase="test"):
     """
     # Ensure the inputs are binary (0 or 1)
     masks = masks.int()
-    preds = (preds > threshhold).int()  # Threshold predictions at 0.5 for binary classification
+    preds = (preds > threshhold).int()
 
     segmentation_metrics = {
                 "image_id": [],
@@ -200,8 +200,7 @@ def calculate_test_metrics(metadata, masks, preds, threshhold, phase="test"):
 
     # iterate over batches (slower but wtf) to get individual mask and pred
     # calculate segmentation metrics AND object detextion metrics
-    for metadata_img, mask, pred in zip(metadata, masks, preds):
-        image_id = metadata_img['image_id']
+    for image_id, mask, pred in zip(image_ids, masks, preds):
         # map to 256x256 np arrays
         mask, pred = mask.squeeze(0).cpu().numpy(), pred.squeeze(0).cpu().numpy()
 

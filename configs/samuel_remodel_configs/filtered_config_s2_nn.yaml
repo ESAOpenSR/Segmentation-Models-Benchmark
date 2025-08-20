@@ -51,7 +51,7 @@ data:
   interpolate_lr: True
   lr_interpolation_type: 'nearest' # Type of interpolation to use; 'nearest-exact', 'bicubic'
   data_type: 'sr'               # Type of data to use (e.g., lr,sr,hr)
-  no_workers: 16                # Number of workers for the DataLoader
+  no_workers: 32                # Number of workers for the DataLoader
   batch_size: 32                # Batch size for the DataLoader
   data_path: '/data/USERS/shollend/metadata/stratification_tables/'
   input_path: '/data/USERS/shollend/combined_download/output/lr_s2/'
