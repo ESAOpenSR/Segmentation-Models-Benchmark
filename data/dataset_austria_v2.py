@@ -214,7 +214,9 @@ class TIFDataset(Dataset):
 
         if cimg_min < 0 or cimg_max > 1.0:
             print(cimg_min, cimg_max)
-            raise TypeError(f'   Validator: {cimg_min} is smaller than 0 or {cimg_max} is greater than 1 after conversion.')
+            img = np.clip(img, 0, 1)
+            mask = np.clip(mask, 0, 1)
+            print(f'   Validator: {cimg_min} is smaller than 0 or {cimg_max} is greater than 1 after conversion.')
 
         return img, mask
 
@@ -265,7 +267,9 @@ class TIFDataset(Dataset):
         mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.tif"
 
         # Load image
+        img_src = None
         with rasterio.open(Path(self.input_path) / image_id) as src:
+            img_src = src
             img = src.read(self.band_indices).astype(np.float32)
             img_profile = src.profile
 
@@ -278,7 +282,7 @@ class TIFDataset(Dataset):
                 img = img / 256
 
         if self.interpolate_lr:
-            img = self.resample_torch(img, scale_factor=2, mode=self.lr_interpolation_type)
+            img = self.resample_torch(img, scale_factor=4, mode=self.lr_interpolation_type)
 
         # Load mask
         with rasterio.open(Path(self.target_path) / mask_id) as src:
@@ -304,7 +308,7 @@ class TIFDataset(Dataset):
                 tiles_dict[(top, left)] = (img_tile, mask_tile, perc_count)
 
             # Select the tile with the highest perc_count
-            (top, left), (img, mask, _) = max(tiles_dict.items(), key=lambda x: x[1][2])
+            (selected_top, selected_left), (img, mask, _) = max(tiles_dict.items(), key=lambda x: x[1][2])
 
         if self.resample_512:
             # resample from bilinear: (4, 256, 256) -> (4, 512, 512)
@@ -318,7 +322,16 @@ class TIFDataset(Dataset):
         mask_trafo = torch.from_numpy(mask).float().unsqueeze(0)
 
         if self.return_index:
-            return f"{self.data.loc[idx, 'id']:05d}", img_trafo, mask_trafo
+            # add metadata for testing phase
+            metadata = {'image_id': f"{self.data.loc[idx, 'id']:05d}"}
+            if self.use_subsample:
+                metadata['window'] = (selected_top, selected_left)
+
+                window = rasterio.windows.Window(selected_top, selected_left, 256, 256)
+                metadata['sub_transform'] = img_src.window_transform(window)
+                metadata['src_profile'] = img_src.profile
+
+            return metadata, img_trafo, mask_trafo
         else:
             return img_trafo, mask_trafo
 

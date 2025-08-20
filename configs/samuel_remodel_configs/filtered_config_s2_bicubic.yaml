@@ -3,7 +3,7 @@ model:
   n_channels: 4                 # Number of input channels (e.g., RGB image has 3 channels)
   n_classes: 1                  # Number of output classes for the segmentation task
   conf_threshold: 0.75           # Confidence threshold for the segmentation task
-  encoder: "se_resnext50_32x4d"    # choose from https://smp.readthedocs.io/en/latest/encoders.html, only supported for smp models
+  encoder: "se_resnext50_32x4d" #"se_resnext50_32x4d"  tu-hrnet_w48  # choose from https://smp.readthedocs.io/en/latest/encoders.html, only supported for smp models
   encoder_depth: 5
   decoder_channels: [512, 256, 128, 64, 32]
   decoder_use_norm: "batchnorm"
@@ -48,12 +48,12 @@ data:
   bands: 4                      # Number of bands in the input image
   use_256_subsample: True       # select and crop a subsample of the image
   resample_512: False           # resample the cropped image to 512x512 again
-  interpolate_lr: False
-  lr_interpolation_type: 'bicubic' # Type of interpolation to use
-  data_type: 'sr_4band'               # Type of data to use (e.g., lr,sr,hr)
-  no_workers: 16 #16                # Number of workers for the DataLoader
+  interpolate_lr: True
+  lr_interpolation_type: 'bicubic' # Type of interpolation to use; 'nearest-exact', 'bicubic'
+  data_type: 'sr'               # Type of data to use (e.g., lr,sr,hr)
+  no_workers: 16                # Number of workers for the DataLoader
   batch_size: 32                # Batch size for the DataLoader
   data_path: '/data/USERS/shollend/metadata/stratification_tables/'
-  input_path: '/data/USERS/shollend/sentinel2/sr_inference/sr4rs/'
+  input_path: '/data/USERS/shollend/combined_download/output/lr_s2/'
   target_path: '/data/USERS/shollend/combined_download/output/hr_mask/'
   img_post: 'tif'

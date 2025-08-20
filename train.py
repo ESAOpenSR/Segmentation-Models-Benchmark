@@ -1,4 +1,6 @@
+import glob
 import os, sys, wandb
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -21,15 +23,31 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from model_files import model_pl
 
 # Load the config
-default_config_path = "configs/samuel_remodel_configs/filtered_config_s2_bilinear.yaml"
-#default_config_path = "configs/samuel_remodel_configs/test.yaml"
+default_config_path = "configs/samuel_remodel_configs/filtered_config_s2_bicubic.yaml"
+model_name = '' #bilinear
+train = True
 
-# Check if a config path is provided as a command-line argument
-config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path  # get argument
+paths = {
+    "sr4rs": "logs/Samuel_building_segmentation/2025-08-16_22-48-42/",
+    "swin2mose": "logs/Samuel_building_segmentation/2025-08-16_22-49-46/",
+    "sen2sr_rgbn": "logs/Samuel_building_segmentation/2025-08-16_17-11-20/",
+    "bilinear": "logs/Samuel_building_segmentation/2025-08-14_11-16-38/",
+    "deepsent": "logs/Samuel_building_segmentation/2025-08-15_18-25-42/",
+    "ldrs2": "logs/Samuel_building_segmentation/2025-08-15_18-33-55/",
+    "evoland": "logs/Samuel_building_segmentation/2025-08-16_17-20-26/",
+    "sen2sr_lite": "logs/Samuel_building_segmentation/2025-08-16_17-22-41/",
+    "ortho": "logs/Samuel_building_segmentation/2025-08-11_12-05-45/",
+}
+
+if not train:
+    config_path = Path(paths[model_name]) / 'train_config.yaml'
+else:
+    # Check if a config path is provided as a command-line argument
+    config_path = sys.argv[1] if len(sys.argv) > 1 else default_config_path  # get argument
 
 config = OmegaConf.load(config_path)
 print("Loaded Config from:", config_path)
-model = model_pl(config)  # model selection is handled by the model_pl function
+model = model_pl(config, name=model_name)  # model selection is handled by the model_pl function
 
 # Continue Training PL
 continue_training = config.training.pl_settings.continue_training
@@ -44,11 +62,11 @@ else:
     else:
         print("Continuing training from:", continue_training)
 
-if config.training.pl_settings.load_weights_only not in [False, None]:
-    ckpt_path = config.training.pl_settings.load_weights_only
-    ckpt = torch.load(ckpt_path)
-    model.load_state_dict(ckpt["state_dict"])
-    print("Loaded weights only from:", ckpt_path)
+# if config.training.pl_settings.load_weights_only not in [False, None]:
+#     ckpt_path = config.training.pl_settings.load_weights_only
+#     ckpt = torch.load(ckpt_path)
+#     model.load_state_dict(ckpt["state_dict"])
+#     print("Loaded weights only from:", ckpt_path)
 
 # Load the data ---------------------------------------------------------------
 if config.data.dataset_type == "fake":
@@ -61,14 +79,21 @@ else:
 data_module = pl_datamodule(config)
 data_module.train_dataset.validate(idx=10, verbose=True)
 
-train = False
-
 if not train:
     print('doing testing')
+
+    to_path = Path('/data/USERS/shollend/inferred_buildings') / model_name
+    to_path.mkdir(exist_ok=True)
+
+    ckpt_path = glob.glob(paths[model_name] + 'epoch=*-step=*.ckpt')[0]
+    print("Loaded weights only from:", ckpt_path)
+    ckpt = torch.load(ckpt_path)
+    model.load_state_dict(ckpt["state_dict"])
+
     #test inference
     trainer = Trainer(
         accelerator=config.training.pl_settings.accelerator,
-        devices=config.training.pl_settings.devices,
+        devices='gpu:0', #config.training.pl_settings.devices,
         strategy=config.training.pl_settings.strategy,
         check_val_every_n_epoch=config.training.pl_settings.check_val_every_n_epoch,
         log_every_n_steps=config.training.pl_settings.log_every_n_steps,
