@@ -155,6 +155,7 @@ class TIFDataset(Dataset):
         return_index=False,
     ):
         # own, defintely needed
+        print('data table', data_table)
         assert Path(data_table).exists()
         self.data = pd.read_csv(data_table)
         self.input_path = input_path
@@ -173,6 +174,7 @@ class TIFDataset(Dataset):
         self.bands = bands
 
         # assertion and validation
+        print(f'loading input data from: {self.input_path}')
         assert self.image_type in ["hr", "sr", "sr_4band"]
         assert bands in [3, 4]
         if self.interpolate_lr:
@@ -197,8 +199,8 @@ class TIFDataset(Dataset):
                 self.id_prefix = 'S2'
 
         # validate for a singel image selected randomly
-        if not self.return_index:
-            self.validate(idx=np.random.randint(low=0, high=len(self.data)), verbose=False)
+        # if not self.return_index:
+        #     self.validate(idx=np.random.randint(low=0, high=len(self.data)), verbose=False)
 
     def validate(self, idx=0, verbose=False):
         if verbose:
@@ -268,9 +270,15 @@ class TIFDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
+        #print(self.data.loc[idx, 'id'], type(self.data.loc[idx, 'id']))
         # tile indexing
-        image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.tif"
-        mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.tif"
+        if isinstance(self.data.loc[idx, 'id'], (int, float, np.int64)):
+            image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']:05d}.tif"
+            mask_id = f"HR_mask_{self.data.loc[idx, 'id']:05d}.tif"
+        else:
+            image_id = f"{self.id_prefix}_{self.data.loc[idx, 'id']}.tif"
+            mask_id = f"HR_mask_{self.data.loc[idx, 'id']}.tif"
+
 
         # Load image
         img_src = None
@@ -279,13 +287,19 @@ class TIFDataset(Dataset):
             img = src.read(self.band_indices).astype(np.float32)
             img_profile = src.profile
 
+            # print(img_profile['dtype'])
+            # print('before', np.max(img))
+
             # validate data is in the range as well
             if img_profile['dtype'] == 'float32':
                 img = img
             elif img_profile['dtype'] == 'uint16':
                 img = img / 10000.0 #65535.0  # 10_000 #10000
+                img = np.clip(img, 0, 1)
             elif img_profile['dtype'] == 'uint8':
                 img = img / 256
+
+            # print('after', np.max(img))
 
         if self.interpolate_lr:
             img = self.resample_torch(img, scale_factor=4, mode=self.lr_interpolation_type)
@@ -315,6 +329,8 @@ class TIFDataset(Dataset):
 
             # Select the tile with the highest perc_count
             (selected_top, selected_left), (img, mask, _) = max(tiles_dict.items(), key=lambda x: x[1][2])
+        else:
+            selected_top, selected_left = 0, 0
 
         if self.resample_512:
             # resample from bilinear: (4, 256, 256) -> (4, 512, 512)
@@ -329,7 +345,10 @@ class TIFDataset(Dataset):
 
         if self.return_index:
             # add metadata for testing phase
-            metadata = f"{self.data.loc[idx, 'id']:05d}"
+            if isinstance(self.data.loc[idx, 'id'], int):
+                metadata = f"{self.data.loc[idx, 'id']:05d}"
+            else:
+                metadata = f"{self.data.loc[idx, 'id']}"
 
             return metadata, (selected_top, selected_left), img_trafo, mask_trafo
         else:

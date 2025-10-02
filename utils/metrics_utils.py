@@ -70,14 +70,23 @@ def calculate_segmentation_metrics(mask, pred):
     fp = ((1 - mask) * pred).sum()  # False Positives
     fn = (mask * (1 - pred)).sum()  # False Negatives
 
-    # Calculate various metrics
-    accuracy = (tp + tn) / (tp + tn + fp + fn)
-    precision = tp / (tp + fp + 1e-8)  # Add small epsilon to avoid division by zero
-    recall = tp / (tp + fn + 1e-8)
-    specificity = tn / (tn + fp + 1e-8)
-    f1_score = 2 * (precision * recall) / (precision + recall + 1e-8)
-    iou = tp / (tp + fp + fn + 1e-8)  # Intersection over Union (IoU)
-    dice_coeff = (2 * tp) / (2 * tp + fp + fn + 1e-8)
+    if mask.sum() == 0 and pred.sum() == 0:
+        accuracy = 1
+        precision = 1
+        recall = 1
+        specificity = 1
+        f1_score = 1
+        iou = 1
+        dice_coeff = 1
+    else:
+        # Calculate various metrics
+        accuracy = (tp + tn) / (tp + tn + fp + fn)
+        precision = tp / (tp + fp + 1e-8)  # Add small epsilon to avoid division by zero
+        recall = tp / (tp + fn + 1e-8)
+        specificity = tn / (tn + fp + 1e-8)
+        f1_score = 2 * (precision * recall) / (precision + recall + 1e-8)
+        iou = tp / (tp + fp + fn + 1e-8)  # Intersection over Union (IoU)
+        dice_coeff = (2 * tp) / (2 * tp + fp + fn + 1e-8)
 
     return accuracy, precision, recall, specificity, f1_score, iou, dice_coeff
 

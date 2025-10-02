@@ -296,10 +296,12 @@ class model_pl(pl.LightningModule):
                     }
 
                     # save img
-                    with rasterio.open(Path('/data/USERS/shollend/inferred_buildings/') / self.name / 'predicted' / f"S2_{image_id}.tif", 'w', **new_profile) as dst:
+                    delete_afterwards = self.name
+                    delete_afterwards = f'tracasa_{self.name}'
+                    with rasterio.open(Path('/data/USERS/shollend/inferred_buildings/') / delete_afterwards / 'predicted' / f"S2_{image_id}.tif", 'w', **new_profile) as dst:
                         dst.write(np_pred, 1)
 
-                    with rasterio.open(Path('/data/USERS/shollend/inferred_buildings/') / self.name / 'colored' / f"S2_{image_id}.tif", 'w', **new_profile) as dst:
+                    with rasterio.open(Path('/data/USERS/shollend/inferred_buildings/') / delete_afterwards / 'colored' / f"S2_{image_id}.tif", 'w', **new_profile) as dst:
                         dst.write(np_colored, 1)
 
                     # save gt
@@ -308,14 +310,14 @@ class model_pl(pl.LightningModule):
                         with rasterio.open(out_path, 'w', **new_profile) as dst:
                             dst.write(np_gt, 1)
 
-        else:
-            # Metrics
-            if self.is_trainer_attached():
-                if batch_idx < 5:  # log only first 5 val batches
-                    val_image = log_images(x, y, y_hat_thresh, title="Testing")
-                    self.logger.experiment.log(
-                        {"images/Testing": [wandb.Image(val_image)]}
-                    )
+        # else:
+        #     # Metrics
+        #     if self.is_trainer_attached():
+        #         if batch_idx < 5:  # log only first 5 val batches
+        #             val_image = log_images(x, y, y_hat_thresh, title="Testing")
+        #             self.logger.experiment.log(
+        #                 {"images/Testing": [wandb.Image(val_image)]}
+        #             )
         return segmentation_metrics, object_metrics, object_metrics_per_size
 
     def on_test_epoch_end(self):
