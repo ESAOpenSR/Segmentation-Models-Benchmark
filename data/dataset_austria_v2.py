@@ -109,33 +109,6 @@ class pl_datamodule(pl.LightningDataModule):
                           )
 
 
-class PercentileScaleClip:
-    def __init__(self, pmin=2, pmax=98):
-        self.pmin = pmin
-        self.pmax = pmax
-
-    def __call__(self, img: np.ndarray) -> np.ndarray:
-        """
-        Args:
-            img (np.ndarray): C x H x W
-        Returns:
-            torch.Tensor: C x H x W scaled to [0, 1]
-        """
-        assert img.ndim == 3, "Expected C x H x W"
-        out = np.empty_like(img, dtype=np.float32)
-
-        for c in range(img.shape[0]):
-            band = img[c]
-            vmin = np.percentile(band, self.pmin)
-            vmax = np.percentile(band, self.pmax)
-            if vmax - vmin > 1e-6:
-                out[c] = (band - vmin) / (vmax - vmin)
-            else:
-                out[c] = 0.0  # handle uniform bands
-
-        return np.clip(out, 0.0, 1.0, out=out)
-
-
 # read in panda file
 class TIFDataset(Dataset):
     def __init__(
@@ -160,7 +133,6 @@ class TIFDataset(Dataset):
         self.data = pd.read_csv(data_table)
         self.input_path = input_path
         self.target_path = target_path
-        self.transform = PercentileScaleClip(pmin=2, pmax=98)
         self.image_type = image_type  # Either LR od HR
         self.mask_class = mask_class
         self.phase = phase
@@ -199,8 +171,8 @@ class TIFDataset(Dataset):
                 self.id_prefix = 'S2'
 
         # validate for a singel image selected randomly
-        # if not self.return_index:
-        #     self.validate(idx=np.random.randint(low=0, high=len(self.data)), verbose=False)
+        if not self.return_index:
+            self.validate(idx=np.random.randint(low=0, high=len(self.data)), verbose=False)
 
     def validate(self, idx=0, verbose=False):
         if verbose:
@@ -281,14 +253,9 @@ class TIFDataset(Dataset):
 
 
         # Load image
-        img_src = None
         with rasterio.open(Path(self.input_path) / image_id) as src:
-            img_src = src
             img = src.read(self.band_indices).astype(np.float32)
             img_profile = src.profile
-
-            # print(img_profile['dtype'])
-            # print('before', np.max(img))
 
             # validate data is in the range as well
             if img_profile['dtype'] == 'float32':
@@ -298,8 +265,6 @@ class TIFDataset(Dataset):
                 img = np.clip(img, 0, 1)
             elif img_profile['dtype'] == 'uint8':
                 img = img / 256
-
-            # print('after', np.max(img))
 
         if self.interpolate_lr:
             img = self.resample_torch(img, scale_factor=4, mode=self.lr_interpolation_type)
@@ -338,8 +303,6 @@ class TIFDataset(Dataset):
             img = self.resample_torch(img, scale_factor=2)
             mask = self.resample_mask_torch(mask, scale_factor=2)
 
-        # apply transform manually here - only scaling to 0-1
-        #img_trafo = torch.from_numpy(self.transform(img))
         img_trafo = torch.from_numpy(img)
         mask_trafo = torch.from_numpy(mask).float().unsqueeze(0)
 
