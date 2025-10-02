@@ -51,7 +51,7 @@ python train.py configs/config_hr.yaml
 
 ### Example Validation
 
-A sample of applied building delineation on five images covering diverse urban areas in Austria:
+A sample of applied building delineation on five images covering diverse urban areas in Austria. The image source is a nearest-neighbour interpolated Sentinel-2 image:
 
 ![sample_image](samples/sample_image_nn.png)
 
