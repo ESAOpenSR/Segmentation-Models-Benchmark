@@ -1,6 +1,11 @@
 # Building Segmentation on LR-HR-SR Satellite Imagery
 ![Example Image](resources/hr_example.png)
+
+Uses Python 3.11
+
 This repository contains code for training and validating segmentation models to perform building delineation on different types of satellite imagery: Low-Resolution (LR), High-Resolution (HR), and Super-Resolution (SR). The goal is to compare the performance of segmentation models across these varying resolutions.
+
+
 
 ## Overview
 The project leverages PyTorch Lightning for model training and Weights & Biases (W&B) for experiment tracking. It includes scripts to train segmentation models and validate them by calculating relevant metrics.

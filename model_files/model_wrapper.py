@@ -255,69 +255,6 @@ class model_pl(pl.LightningModule):
         self.test_object_metrics.append(object_metrics)
         self.test_object_metrics_per_size.append(object_metrics_per_size)
 
-        save_to_disk = True
-        if save_to_disk:
-            for image_id, location, pred, gt in zip(image_ids, locations, y_hat_thresh, y):
-                # convert to binary and move to cpu
-                np_gt = gt.int().squeeze(0).cpu().numpy()
-                np_pred = (pred > self.conf_threshold).int().squeeze(0).cpu().numpy()
-
-                np_colored = np.zeros_like(np_pred, dtype=np.uint8)
-                tp = (np_pred == 1) & (np_gt == 1)
-                fp = (np_pred == 1) & (np_gt == 0)
-                fn = (np_pred == 0) & (np_gt == 1)
-                tn = (np_pred == 0) & (np_gt == 0)
-
-                np_colored[tp] = 1
-                np_colored[fp] = 2
-                np_colored[fn] = 3
-                np_colored[tn] = 0
-
-                h, w = np_pred.shape
-
-                # read in corresponding image
-                if self.name in ['nn', 'bicubic']:
-                    ref_path = '/data/USERS/shollend/sentinel2/sr_inference/bilinear/'
-                else:
-                    ref_path = self.config.data.input_path
-
-                with rasterio.open(Path(ref_path) / f"S2_{image_id}.tif", 'r') as src:
-                    window = rasterio.windows.Window(location[1], location[0], 256, 256)
-                    sub_transform = src.window_transform(window)
-
-                    new_profile = {
-                        "dtype": np_pred.dtype,
-                        "height": h,
-                        "width": w,
-                        "count": 1,
-                        "transform": sub_transform,
-                        "crs": src.crs,
-                        'driver': 'GTiff',
-                    }
-
-                    # save img
-                    delete_afterwards = self.name
-                    delete_afterwards = f'tracasa_{self.name}'
-                    with rasterio.open(Path('/data/USERS/shollend/inferred_buildings/') / delete_afterwards / 'predicted' / f"S2_{image_id}.tif", 'w', **new_profile) as dst:
-                        dst.write(np_pred, 1)
-
-                    with rasterio.open(Path('/data/USERS/shollend/inferred_buildings/') / delete_afterwards / 'colored' / f"S2_{image_id}.tif", 'w', **new_profile) as dst:
-                        dst.write(np_colored, 1)
-
-                    # save gt
-                    out_path = Path('/data/USERS/shollend/inferred_buildings/') / 'gt' / f"S2_{image_id}.tif"
-                    if not out_path.exists():
-                        with rasterio.open(out_path, 'w', **new_profile) as dst:
-                            dst.write(np_gt, 1)
-
-        # else:
-        #     # Metrics
-        #     if self.is_trainer_attached():
-        #         if batch_idx < 5:  # log only first 5 val batches
-        #             val_image = log_images(x, y, y_hat_thresh, title="Testing")
-        #             self.logger.experiment.log(
-        #                 {"images/Testing": [wandb.Image(val_image)]}
-        #             )
         return segmentation_metrics, object_metrics, object_metrics_per_size
 
     def on_test_epoch_end(self):
@@ -400,7 +337,7 @@ if __name__ == "__main__":
     config = OmegaConf.load("configs/config_hr.yaml")
     model = model_pl(config)
 
-    from data.dataset_masks import pl_datamodule
+    from data.dataset_austria_v2 import pl_datamodule
 
     data_module = pl_datamodule(config)
 

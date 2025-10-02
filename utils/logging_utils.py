@@ -132,7 +132,7 @@ def plot_mask_with_threshold(mask, low_threshold=0.2, high_threshold=0.75):
 if __name__ == "__main__":
     # datamodule
     from omegaconf import OmegaConf
-    from data.dataset_masks import pl_datamodule
+    from data.dataset_austria_v2 import pl_datamodule
     config = OmegaConf.load("configs/config_hr.yaml")
     pl_dm = pl_datamodule(config)
     images,masks = next(iter(pl_dm.train_dataloader()))
