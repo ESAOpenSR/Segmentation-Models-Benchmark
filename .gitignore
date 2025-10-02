@@ -74,7 +74,6 @@ build/
 .venv
 
 # personal files
-todo
 logs
 results
 wandb

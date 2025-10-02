@@ -1,4 +1,0 @@
-- add my dataset model struture and aparameter to config
-    - renove geojson use
-- add model encoder architecture to config
-- change model loss name of tversky to ful name
